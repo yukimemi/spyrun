@@ -1,0 +1,48 @@
+# [config]
+# skip_core_tasks = true
+
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt"]
+description = "Format code using rustfmt"
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+dependencies = ["format"]
+
+[tasks.rebuild]
+command = "cargo"
+args = ["build"]
+dependencies = ["clean"]
+
+[tasks.install]
+command = "cargo"
+args = ["install", "--force", "--path", "."]
+# dependencies = ["test"]
+
+[tasks.lint]
+command = "cargo"
+args = ["clippy"]
+
+[tasks.test]
+command = "cargo"
+args = ["test", "exbranch-chrome:https://www.google.com", "--", "--nocapture"]
+dependencies = ["format", "lint"]
+
+[tasks.debug]
+script = ["RUST_LOG=spyrun=debug cargo run -- ${@}"]
+
+[tasks.watch]
+env = { "RUST_LOG" = "spyrun=debug" }
+watch = { postpone = true, ignore_pattern = "dst/*" }
+dependencies = ["build", "test", "install"]
+
+[tasks.default]
+dependencies = ["format", "build", "test"]
+
