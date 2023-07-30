@@ -2,7 +2,3 @@
 in = "./in"
 out = "./out"
 
-[spy.create]
-powershell = ```
-echo "hello"
-```

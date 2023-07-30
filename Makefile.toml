@@ -49,3 +49,7 @@ dependencies = ["build", "test", "install"]
 
 [tasks.default]
 dependencies = ["format", "build", "test"]
+
+[tasks.docker]
+command = "docker"
+args = ["run", "--rm", "-it", "-w", "${PWD}", "-v", "${PWD}:${PWD}", "rust"]
