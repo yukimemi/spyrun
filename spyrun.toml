@@ -1,6 +1,8 @@
 [[spy]]
 in = "./in"
 out = "./out"
-on = ["Create", "Modify"]
 
-
+[spy.create]
+powershell = ```
+echo "hello"
+```

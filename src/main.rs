@@ -1,6 +1,6 @@
 use clap::Parser;
-use notify::event::{CreateKind, ModifyKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Result, Watcher};
+use std::fs;
 use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
@@ -19,7 +19,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     dbg!(&args);
-    let config_str = std::fs::read_to_string(args.config).unwrap();
+    let config_str = fs::read_to_string(args.config).unwrap();
     let config_toml: toml::Value = toml::from_str(&config_str).unwrap();
     dbg!(&config_toml);
 
@@ -33,20 +33,23 @@ fn main() -> Result<()> {
         for res in rx.into_iter() {
             match res {
                 Ok(event) => match event.kind {
-                    EventKind::Create(CreateKind::Any) => {
+                    EventKind::Create(_) => {
                         println!("A file was created: {:?}", event.paths);
                     }
-                    EventKind::Remove(RemoveKind::Any) => {
+                    EventKind::Remove(_) => {
                         println!("A file was removed: {:?}", event.paths);
                     }
-                    EventKind::Modify(ModifyKind::Any) => {
+                    EventKind::Modify(_) => {
                         println!("A file was modified: {:?}", event.paths);
+                    }
+                    EventKind::Access(_) => {
+                        println!("A file was accessed: {:?}", event.paths);
+                    }
+                    EventKind::Other => {
+                        println!("Other event: {:?}", event);
                     }
                     EventKind::Any => {
                         println!("Unknown or unsupported event: {:?}", event);
-                    }
-                    _ => {
-                        println!("Other kind of event: {:?}", event);
                     }
                 },
                 Err(e) => println!("watch error: {:?}", e),

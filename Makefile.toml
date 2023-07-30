@@ -1,6 +1,10 @@
 # [config]
 # skip_core_tasks = true
 
+[tasks.run]
+command = "cargo"
+args = ["run", "--"]
+
 [tasks.format]
 install_crate = "rustfmt"
 command = "cargo"
@@ -45,4 +49,3 @@ dependencies = ["build", "test", "install"]
 
 [tasks.default]
 dependencies = ["format", "build", "test"]
-
