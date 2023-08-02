@@ -1,4 +1,9 @@
-[[spy]]
-in = "./in"
-out = "./out"
+[log]
+path = '{{cwd}}\logs\{{cmd_stem}}_{{now}}.log'
+time_format = '%Y/%m/%d %H:%M:%S.%3f'
+level = 'debug'
 
+[[spys]]
+input = "./in"
+output = "./out"
+events = ["Create", "Modify"]

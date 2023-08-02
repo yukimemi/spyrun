@@ -6,7 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.3.8", features = ["derive"] }
+anyhow = "1.0.72"
+chrono = "0.4.26"
+clap = { version = "4.3.8", features = ["derive", "env", "cargo", "unicode"] }
+config = "0.13.3"
 notify = "6.0.1"
-toml = "0.7.5"
-
+regex = "1.9.1"
+serde = "1.0.178"
+serde_derive = "1.0.178"
+text_placeholder = "0.5.0"
+time = { version = "0.3.24", features = ["macros"] }
+tracing = "0.1.37"
+tracing-appender = "0.2.2"
+tracing-subscriber = { version = "0.3.17", features = ["time", "json", "local-time", "env-filter"] }

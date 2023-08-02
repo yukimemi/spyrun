@@ -1,27 +1,70 @@
+// #![windows_subsystem = "windows"]
+
+mod logger;
+mod settings;
+
+use anyhow::Result;
+use chrono::prelude::*;
 use clap::Parser;
-use notify::{EventKind, RecursiveMode, Result, Watcher};
+use notify::{EventKind, RecursiveMode, Watcher};
+use regex::Regex;
+use settings::Settings;
+use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
+use tracing::info;
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about)]
-struct Args {
-    /// The verbosity level
-    #[clap(short, long, default_value_t = 1)]
-    verbose: i32,
-    /// Path to the config file
-    #[clap(short, long, default_value = "spyrun.toml")]
-    config: String,
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Sets a custom config file
+    #[arg(short, long, value_name = "FILE", default_value = "spyrun.toml")]
+    config: PathBuf,
+
+    /// Turn debugging information on
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    debug: u8,
+}
+
+fn build_cmd_map() -> Result<HashMap<String, String>> {
+    let cmd_file = env::current_exe()?;
+    dbg!(&cmd_file);
+
+    let mut m: HashMap<String, String> = HashMap::new();
+
+    let cmd = cmd_file.to_string_lossy().to_string();
+    m.insert("cmd_file".to_string(), cmd);
+    let cmd_dir = cmd_file.parent().unwrap().to_string_lossy().to_string();
+    m.insert("cmd_dir".to_string(), cmd_dir);
+    let cmd_name = cmd_file.file_name().unwrap().to_string_lossy().to_string();
+    m.insert("cmd_name".to_string(), cmd_name);
+    let cmd_stem = cmd_file.file_stem().unwrap().to_string_lossy().to_string();
+    m.insert("cmd_stem".to_string(), cmd_stem);
+    let now = Local::now().format("%Y%m%d%H%M%S%3f").to_string();
+    m.insert("now".to_string(), now);
+    let cwd = env::current_dir()?.to_string_lossy().to_string();
+    m.insert("cwd".to_string(), cwd);
+
+    Ok(m)
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
-    dbg!(&args);
-    let config_str = fs::read_to_string(args.config).unwrap();
-    let config_toml: toml::Value = toml::from_str(&config_str).unwrap();
-    dbg!(&config_toml);
+    let m = build_cmd_map()?;
+    dbg!(&m);
+
+    let cli = Cli::parse();
+    dbg!(&cli);
+
+    let settings = Settings::new(cli.config)?;
+    dbg!(&settings);
+
+    let guard = logger::init(settings.clone(), &m)?;
+
+    info!("start !");
 
     let (tx, rx) = mpsc::channel();
 
@@ -60,6 +103,8 @@ fn main() -> Result<()> {
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
+
+    drop(guard);
 
     Ok(())
 }
