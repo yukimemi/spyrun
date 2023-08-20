@@ -36,7 +36,7 @@ args = ["clippy"]
 
 [tasks.test]
 command = "cargo"
-args = ["test", "exbranch-chrome:https://www.google.com", "--", "--nocapture"]
+args = ["test", "--", "--nocapture"]
 dependencies = ["format", "lint"]
 
 [tasks.debug]

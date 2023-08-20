@@ -41,4 +41,3 @@ pub fn init(
 
     Ok(guard)
 }
-
