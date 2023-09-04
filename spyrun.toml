@@ -1,9 +1,32 @@
 [log]
-path = '{{cwd}}\logs\{{cmd_stem}}_{{now}}.log'
-time_format = '%Y/%m/%d %H:%M:%S.%3f'
-level = 'debug'
+path = "{{cwd}}/logs/{{cmd_stem}}_{{now}}.log"
+time_format = "%Y/%m/%d %H:%M:%S.%3f"
+level = "debug"
+
+[all]
+
+[[all.patterns]]
+extension = "ps1"
+cmd = "powershell"
+arg = "-NoProfile -File {{input}}"
+
+[[all.patterns]]
+extension = "cmd"
+cmd = "cmd"
+arg = "/c {{input}}"
+
+[[all.patterns]]
+extension = "bat"
+cmd = "cmd"
+arg = "/c {{input}}"
 
 [[spys]]
 input = "./in"
 output = "./out"
-events = ["Create", "Modify"]
+events = ["Create","Modify"]
+
+[[spys.patterns]]
+extension = "ps1"
+cmd = "powershell"
+arg = "-NoProfile -File {{input}}"
+

@@ -10,14 +10,28 @@ pub struct Log {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct Pattern {
+    pub extension: String,
+    pub cmd: String,
+    pub arg: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct All {
+    pub patterns: Option<Vec<Pattern>>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Spy {
     pub input: String,
     pub output: String,
+    pub patterns: Option<Vec<Pattern>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub log: Log,
+    pub all: Option<All>,
     pub spys: Vec<Spy>,
 }
 
