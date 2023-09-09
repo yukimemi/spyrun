@@ -75,28 +75,28 @@ fn main() -> Result<()> {
             match res {
                 Ok(event) => match event.kind {
                     EventKind::Create(_) => {
-                        println!("A file was created: {:?}", event.paths);
+                        info!("A file was created: {:?}", event.paths);
                     }
                     EventKind::Remove(_) => {
-                        println!("A file was removed: {:?}", event.paths);
+                        info!("A file was removed: {:?}", event.paths);
                     }
                     EventKind::Modify(_) => {
-                        println!("A file was modified: {:?}", event.paths);
+                        info!("A file was modified: {:?}", event.paths);
                     }
                     EventKind::Access(_) => {
-                        println!("A file was accessed: {:?}", event.paths);
+                        info!("A file was accessed: {:?}", event.paths);
                     }
                     EventKind::Other => {
-                        println!("Other event: {:?}", event);
+                        info!("Other event: {:?}", event);
                     }
                     EventKind::Any => {
-                        println!("Unknown or unsupported event: {:?}", event);
+                        info!("Unknown or unsupported event: {:?}", event);
                     }
                 },
-                Err(e) => println!("watch error: {:?}", e),
+                Err(e) => info!("watch error: {:?}", e),
             }
         }
-        println!("channel closed");
+        info!("channel closed");
     });
 
     let mut input = String::new();

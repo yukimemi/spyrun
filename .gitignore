@@ -4,3 +4,6 @@
 in/
 logs/
 out/
+logs/
+.vim/
+*.log

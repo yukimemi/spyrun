@@ -21,9 +21,9 @@ cmd = "cmd"
 arg = "/c {{input}}"
 
 [[spys]]
+events = ["Create","Modify"]
 input = "./in"
 output = "./out"
-events = ["Create","Modify"]
 
 [[spys.patterns]]
 extension = "ps1"
