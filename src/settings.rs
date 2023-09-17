@@ -1,3 +1,9 @@
+// =============================================================================
+// File        : settings.rs
+// Author      : yukimemi
+// Last Change : 2023/09/10 23:44:15.
+// =============================================================================
+
 use config::{Config, ConfigError, Environment, File};
 use serde_derive::Deserialize;
 use std::path::Path;
@@ -5,7 +11,6 @@ use std::path::Path;
 #[derive(Debug, Deserialize, Clone)]
 pub struct Log {
     pub path: String,
-    pub time_format: String,
     pub level: String,
 }
 

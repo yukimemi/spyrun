@@ -1,10 +1,16 @@
+// =============================================================================
+// File        : main.rs
+// Author      : yukimemi
+// Last Change : 2023/09/16 21:38:30.
+// =============================================================================
+
 // #![windows_subsystem = "windows"]
 
 mod logger;
 mod settings;
 
 use anyhow::Result;
-use chrono::prelude::*;
+use chrono::Local;
 use clap::Parser;
 use notify::{EventKind, RecursiveMode, Watcher};
 use settings::Settings;
@@ -60,7 +66,7 @@ fn main() -> Result<()> {
     let settings = Settings::new(cli.config)?;
     dbg!(&settings);
 
-    let guard = logger::init(settings.clone(), &m)?;
+    let (guard1, guard2) = logger::init(settings.clone(), &m)?;
 
     info!("start !");
 
@@ -102,7 +108,8 @@ fn main() -> Result<()> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
 
-    drop(guard);
+    drop(guard1);
+    drop(guard2);
 
     Ok(())
 }
