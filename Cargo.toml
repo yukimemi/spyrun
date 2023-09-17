@@ -10,6 +10,7 @@ anyhow = "1.0.75"
 chrono = "0.4.30"
 clap = { version = "4.3.8", features = ["derive", "env", "cargo", "unicode"] }
 config = "0.13.3"
+go-defer = "0.1.0"
 notify = "6.0.1"
 regex = "1.9.1"
 serde = "1.0.178"

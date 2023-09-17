@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/09/17 21:24:16.
+// Last Change : 2023/09/17 21:48:12.
 // =============================================================================
 
 use super::settings::Settings;
@@ -24,7 +24,7 @@ pub fn init(
     tracing_appender::non_blocking::WorkerGuard,
     tracing_appender::non_blocking::WorkerGuard,
 )> {
-    LogTracer::init().expect("failed to init logger");
+    LogTracer::init()?;
 
     let hashmap: HashMap<&str, &str> = rep_map
         .iter()

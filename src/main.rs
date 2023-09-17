@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/16 21:38:30.
+// Last Change : 2023/09/17 21:53:40.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -12,6 +12,7 @@ mod settings;
 use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
+use go_defer::defer;
 use notify::{EventKind, RecursiveMode, Watcher};
 use settings::Settings;
 use std::collections::HashMap;
@@ -67,11 +68,14 @@ fn main() -> Result<()> {
     dbg!(&settings);
 
     let (guard1, guard2) = logger::init(settings.clone(), &m)?;
+    defer!({
+        drop(guard1);
+        drop(guard2);
+    });
 
     info!("start !");
 
     let (tx, rx) = mpsc::channel();
-
     let mut watcher = notify::recommended_watcher(tx)?;
 
     watcher.watch(Path::new("."), RecursiveMode::Recursive)?;
@@ -107,9 +111,6 @@ fn main() -> Result<()> {
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
-
-    drop(guard1);
-    drop(guard2);
 
     Ok(())
 }

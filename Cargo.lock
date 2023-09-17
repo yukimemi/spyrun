@@ -381,6 +381,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "go-defer"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4053f727e8be72cb6afd9f05955676f4df66b2f6a56c5b29362403df8810062b"
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -893,6 +899,7 @@ dependencies = [
  "chrono",
  "clap",
  "config",
+ "go-defer",
  "notify",
  "regex",
  "serde",
