@@ -4,18 +4,19 @@
 // Last Change : 2023/09/17 21:48:12.
 // =============================================================================
 
-use super::settings::Settings;
+use std::{collections::HashMap, fs::create_dir_all, path::Path};
+
 use anyhow::Result;
-use std::collections::HashMap;
-use std::fs::create_dir_all;
-use std::path::Path;
 use text_placeholder::Template;
 use tracing_appender::non_blocking;
 use tracing_log::LogTracer;
-use tracing_subscriber::fmt::time::LocalTime;
-use tracing_subscriber::fmt::writer::BoxMakeWriter;
-use tracing_subscriber::fmt::Layer;
-use tracing_subscriber::{prelude::*, EnvFilter, Registry};
+use tracing_subscriber::{
+    fmt::{time::LocalTime, writer::BoxMakeWriter, Layer},
+    prelude::*,
+    EnvFilter, Registry,
+};
+
+use super::settings::Settings;
 
 pub fn init(
     settings: Settings,

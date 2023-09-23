@@ -1,12 +1,13 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/09/10 23:44:15.
+// Last Change : 2023/09/23 22:25:50.
 // =============================================================================
 
-use config::{Config, ConfigError, Environment, File};
-use serde_derive::Deserialize;
 use std::path::Path;
+
+use config::{Config, ConfigError, Environment, File};
+use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Log {
@@ -22,21 +23,18 @@ pub struct Pattern {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct All {
-    pub patterns: Option<Vec<Pattern>>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct Spy {
-    pub input: String,
-    pub output: String,
+    pub name: String,
+    #[serde(deserialize_with = "is_valid_event_kind")]
+    pub events: Option<Vec<String>>,
+    pub input: Option<String>,
+    pub output: Option<String>,
     pub patterns: Option<Vec<Pattern>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub log: Log,
-    pub all: Option<All>,
     pub spys: Vec<Spy>,
 }
 
@@ -49,5 +47,95 @@ impl Settings {
             .build()?;
 
         s.try_deserialize()
+    }
+
+    pub fn rebuild(&self) -> Settings {
+        let default_spy = Spy::default();
+        let default_spy = self
+            .spys
+            .iter()
+            .find(|spy| spy.name == "default")
+            .unwrap_or(&default_spy);
+
+        let spys = self
+            .spys
+            .iter()
+            .map(|spy| {
+                if spy.name == "default" {
+                    spy.clone()
+                } else {
+                    Spy {
+                        name: spy.name.clone(),
+                        events: spy.events.clone(),
+                        input: spy.input.clone().or(default_spy.input.clone()),
+                        output: spy.output.clone().or(default_spy.output.clone()),
+                        patterns: spy
+                            .patterns
+                            .clone()
+                            .or_else(|| default_spy.patterns.clone()),
+                    }
+                }
+            })
+            .collect();
+
+        Settings {
+            log: self.log.clone(),
+            spys,
+        }
+    }
+}
+
+impl Default for Spy {
+    fn default() -> Self {
+        Self {
+            name: "default".to_string(),
+            events: Some(vec!["Create".to_string(), "Modify".to_string()]),
+            input: Some("input".to_string()),
+            output: Some("output".to_string()),
+            patterns: Some(vec![
+                Pattern {
+                    extension: "ps1".to_string(),
+                    cmd: "powershell".to_string(),
+                    arg: "-NoProfile -File {{input}}".to_string(),
+                },
+                Pattern {
+                    extension: "cmd".to_string(),
+                    cmd: "cmd".to_string(),
+                    arg: "/c {{input}}".to_string(),
+                },
+                Pattern {
+                    extension: "bat".to_string(),
+                    cmd: "cmd".to_string(),
+                    arg: "/c {{input}}".to_string(),
+                },
+                Pattern {
+                    extension: "sh".to_string(),
+                    cmd: "bash".to_string(),
+                    arg: "-c {{input}}".to_string(),
+                },
+            ]),
+        }
+    }
+}
+
+fn is_valid_event_kind<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<String>>, D::Error> {
+    let opt = Option::<Vec<String>>::deserialize(d)?;
+    if let Some(v) = opt {
+        let valid = v.iter().all(|s| {
+            matches!(
+                s.as_str(),
+                "Access" | "Create" | "Modify" | "Remove" | "Any"
+            )
+        });
+        if valid {
+            Ok(Some(v))
+        } else {
+            Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Seq,
+                &"events must be Access, Create, Modify, Remove or Any",
+            ))
+        }
+    } else {
+        Ok(None)
     }
 }

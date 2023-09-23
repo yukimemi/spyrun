@@ -2,24 +2,8 @@
 path = "{{cwd}}/logs/{{cmd_stem}}.log"
 level = "debug"
 
-[all]
-
-[[all.patterns]]
-extension = "ps1"
-cmd = "powershell"
-arg = "-NoProfile -File {{input}}"
-
-[[all.patterns]]
-extension = "cmd"
-cmd = "cmd"
-arg = "/c {{input}}"
-
-[[all.patterns]]
-extension = "bat"
-cmd = "cmd"
-arg = "/c {{input}}"
-
 [[spys]]
+name = "default"
 events = ["Create","Modify"]
 input = "./in"
 output = "./out"
@@ -28,4 +12,36 @@ output = "./out"
 extension = "ps1"
 cmd = "powershell"
 arg = "-NoProfile -File {{input}}"
+
+[[spys.patterns]]
+extension = "cmd"
+cmd = "cmd"
+arg = "/c {{input}}"
+
+[[spys.patterns]]
+extension = "bat"
+cmd = "cmd"
+arg = "/c {{input}}"
+
+[[spys.patterns]]
+extension = "sh"
+cmd = "bash"
+arg = "-c {{input}}"
+
+[[spys]]
+name = "some1"
+events = ["Create","Modify", "Remove"]
+input = "./in"
+output = "./out"
+
+[[spys.patterns]]
+extension = "ps1"
+cmd = "powershell"
+arg = "-NoProfile -File {{input}}"
+
+[[spys]]
+name = "some2"
+events = ["Create","Modify"]
+input = "./in2"
+output = "./out2"
 

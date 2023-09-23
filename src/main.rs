@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/17 21:53:40.
+// Last Change : 2023/09/23 22:51:09.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -9,18 +9,20 @@
 mod logger;
 mod settings;
 
+use std::{
+    collections::HashMap,
+    env,
+    path::{Path, PathBuf},
+    sync::mpsc,
+    thread,
+};
+
 use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
 use go_defer::defer;
 use notify::{EventKind, RecursiveMode, Watcher};
 use settings::Settings;
-use std::collections::HashMap;
-use std::env;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::mpsc;
-use std::thread;
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -57,6 +59,12 @@ fn build_cmd_map() -> Result<HashMap<String, String>> {
     Ok(m)
 }
 
+// 設定ファイルを1つ受取、 notify イベントを監視して、設定ファイルに従って処理を行う
+// fn watcher(settings: Settings, m: HashMap<String, String>) -> Result<()> {
+//     let (tx, rx) = mpsc::channel();
+//     let mut watcher = notify::recommended_watcher(tx)?;
+// }
+
 fn main() -> Result<()> {
     let m = build_cmd_map()?;
     dbg!(&m);
@@ -64,7 +72,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     dbg!(&cli);
 
-    let settings = Settings::new(cli.config)?;
+    let settings = Settings::new(cli.config)?.rebuild();
     dbg!(&settings);
 
     let (guard1, guard2) = logger::init(settings.clone(), &m)?;
@@ -96,11 +104,8 @@ fn main() -> Result<()> {
                     EventKind::Access(_) => {
                         info!("A file was accessed: {:?}", event.paths);
                     }
-                    EventKind::Other => {
-                        info!("Other event: {:?}", event);
-                    }
-                    EventKind::Any => {
-                        info!("Unknown or unsupported event: {:?}", event);
+                    EventKind::Other | EventKind::Any => {
+                        info!("Other or Any event: {:?}", event);
                     }
                 },
                 Err(e) => info!("watch error: {:?}", e),
