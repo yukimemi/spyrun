@@ -21,7 +21,7 @@ regex = "1.9.1"
 serde = "1.0.178"
 serde_derive = "1.0.178"
 text_placeholder = "0.5.0"
-time = { version = "0.3.24", features = ["macros", "local-offset"], rustc-cfg = ["unsound_local_offset"] }
+time = { version = "0.3.24", features = ["macros", "local-offset"] }
 tracing = { version = "0.1.37", features = ["log", "attributes", "std", "tracing-attributes"] }
 tracing-appender = "0.2.2"
 tracing-log = "0.1.3"

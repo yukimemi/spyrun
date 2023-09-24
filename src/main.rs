@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/24 22:48:53.
+// Last Change : 2023/09/25 01:46:18.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -12,7 +12,7 @@ mod settings;
 use std::{
     collections::HashMap,
     env,
-    fs::{canonicalize, create_dir_all, OpenOptions},
+    fs::{create_dir_all, OpenOptions},
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
     sync::mpsc,
@@ -180,8 +180,7 @@ fn watcher(
         }
     })?;
     let input = spy.clone().input.expect("spy.input is None");
-    let input = canonicalize(input)?;
-    info!("watching {}", &input.display());
+    info!("watching {}", &input);
     watcher.watch(Path::new(&input), RecursiveMode::Recursive)?;
 
     let handle = thread::spawn(move || {
