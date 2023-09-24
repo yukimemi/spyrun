@@ -8,7 +8,7 @@ name = "some1"
 [[spys.patterns]]
 extension = "ps1"
 cmd = "powershell"
-arg = "-NoProfile -File {{input}}"
+arg = ["-NoProfile", "-File", "{{input}}"]
 
 [[spys]]
 name = "some2"

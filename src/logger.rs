@@ -1,17 +1,18 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/09/17 21:48:12.
+// Last Change : 2023/09/24 23:27:50.
 // =============================================================================
 
-use std::{collections::HashMap, fs::create_dir_all, path::Path};
+use std::{collections::HashMap, env, fs::create_dir_all, path::Path};
 
 use anyhow::Result;
 use text_placeholder::Template;
+use time::UtcOffset;
 use tracing_appender::non_blocking;
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    fmt::{time::LocalTime, writer::BoxMakeWriter, Layer},
+    fmt::{time::OffsetTime, writer::BoxMakeWriter, Layer},
     prelude::*,
     EnvFilter, Registry,
 };
@@ -39,7 +40,9 @@ pub fn init(
     create_dir_all(log_dir)?;
 
     let time_format = time::format_description::well_known::Iso8601::DEFAULT;
-    let timer = LocalTime::new(time_format);
+    // let timer = LocalTime::new(time_format); // issues: https://github.com/tokio-rs/tracing/issues/2715
+    let offset = UtcOffset::from_hms(9, 0, 0).unwrap();
+    let timer = OffsetTime::new(offset, time_format);
 
     let file_appender = non_blocking(tracing_appender::rolling::daily(log_dir, log_name));
     let stdout_appender = non_blocking(std::io::stdout());
@@ -51,14 +54,18 @@ pub fn init(
         .with_writer(file_writer)
         .with_timer(timer.clone())
         .json()
-        .with_filter(EnvFilter::from_default_env())
+        .with_filter(EnvFilter::new(
+            env::var("SPYRUN_LOG_FILE").unwrap_or_else(|_| "debug".to_string()),
+        ))
         .boxed();
     let stdout_layer = Layer::default()
         .with_writer(stdout_writer)
         .with_timer(timer.clone())
         .pretty()
         .with_file(false)
-        .with_filter(EnvFilter::from_default_env())
+        .with_filter(EnvFilter::new(
+            env::var("SPYRUN_LOG_STDOUT").unwrap_or_else(|_| "info".to_string()),
+        ))
         .boxed();
 
     let registry = Registry::default().with(file_layer).with(stdout_layer);

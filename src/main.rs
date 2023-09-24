@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/24 02:25:22.
+// Last Change : 2023/09/24 22:48:53.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -12,8 +12,9 @@ mod settings;
 use std::{
     collections::HashMap,
     env,
-    fs::canonicalize,
+    fs::{canonicalize, create_dir_all, OpenOptions},
     path::{Path, PathBuf},
+    process::{Command, ExitStatus},
     sync::mpsc,
     thread,
 };
@@ -22,10 +23,11 @@ use anyhow::Result;
 use chrono::Local;
 use clap::Parser;
 use go_defer::defer;
+use log_derive::logfn;
 use notify::{EventKind, RecursiveMode, Watcher};
 use rayon::prelude::*;
-use settings::{Settings, Spy};
-use tracing::{error, info};
+use settings::{Pattern, Settings, Spy};
+use tracing::{debug, error, info};
 
 enum Message {
     Event(notify::Event),
@@ -44,9 +46,11 @@ struct Cli {
     debug: u8,
 }
 
+#[tracing::instrument]
+#[logfn(Info)]
 fn build_cmd_map() -> Result<HashMap<String, String>> {
     let cmd_file = env::current_exe()?;
-    dbg!(&cmd_file);
+    debug!("{:?}", &cmd_file);
 
     let mut m: HashMap<String, String> = HashMap::new();
 
@@ -66,6 +70,98 @@ fn build_cmd_map() -> Result<HashMap<String, String>> {
     Ok(m)
 }
 
+#[tracing::instrument]
+#[logfn(Info)]
+fn event_kind_to_string(kind: EventKind) -> String {
+    match kind {
+        EventKind::Create(_) => "Create".to_string(),
+        EventKind::Remove(_) => "Remove".to_string(),
+        EventKind::Modify(_) => "Modify".to_string(),
+        EventKind::Access(_) => "Access".to_string(),
+        _ => "Other".to_string(),
+    }
+}
+
+#[tracing::instrument]
+#[logfn(Info)]
+fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
+    let event_kind = event_kind_to_string(event.kind);
+    let event_path = event.paths.last().unwrap();
+    let event_ext = event_path
+        .extension()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let event_match = spy
+        .events
+        .as_ref()
+        .unwrap()
+        .iter()
+        .any(|e| e == &event_kind);
+    let match_pattern = spy
+        .patterns
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|p| p.extension == "*" || p.extension == event_ext);
+    if event_match {
+        match_pattern.cloned()
+    } else {
+        None
+    }
+}
+
+#[tracing::instrument]
+#[logfn(Info)]
+fn execute_command(event: &notify::Event, spy: &Spy, pattern: &Pattern) -> Result<ExitStatus> {
+    create_dir_all(spy.output.as_ref().unwrap())?;
+    let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
+    let stdout_path = PathBuf::from(&spy.output.as_ref().unwrap())
+        .join(format!("{}_stdout_{}.log", &spy.name, now));
+    create_dir_all(spy.output.as_ref().unwrap())?;
+    let stdout_file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(&stdout_path)?;
+    let stderr_path = PathBuf::from(&spy.output.as_ref().unwrap())
+        .join(format!("{}_stderr_{}.log", &spy.name, now));
+    let stderr_file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open(&stderr_path)?;
+    let event_path = event.paths.last().unwrap();
+    let cmd = &pattern.cmd;
+    let arg = &pattern
+        .arg
+        .iter()
+        .map(|s| {
+            if s.contains("{{input}}") {
+                s.replace("{{input}}", event_path.to_string_lossy().as_ref())
+                    .to_string()
+            } else {
+                s.to_string()
+            }
+        })
+        .collect::<Vec<_>>();
+    info!(
+        "cmd: {}, arg: {}, stdout: {}, stderr: {}",
+        cmd,
+        arg.join(" "),
+        stdout_path.display(),
+        stderr_path.display()
+    );
+    Ok(Command::new(cmd)
+        .args(arg)
+        .stdout(stdout_file)
+        .stderr(stderr_file)
+        .spawn()?
+        .wait()?)
+}
+
+#[tracing::instrument]
+#[logfn(Info)]
 fn watcher(
     spy: Spy,
 ) -> Result<(
@@ -83,7 +179,7 @@ fn watcher(
             error!("watch error: {:?}", e);
         }
     })?;
-    let input = spy.input.expect("spy.input is None");
+    let input = spy.clone().input.expect("spy.input is None");
     let input = canonicalize(input)?;
     info!("watching {}", &input.display());
     watcher.watch(Path::new(&input), RecursiveMode::Recursive)?;
@@ -91,23 +187,33 @@ fn watcher(
     let handle = thread::spawn(move || {
         for msg in rx.into_iter() {
             match msg {
-                Message::Event(event) => match event.kind {
-                    EventKind::Create(_) => {
-                        info!("A file was created: {:?}", event.paths);
+                Message::Event(event) => {
+                    match event.kind {
+                        EventKind::Create(_) => {
+                            info!("A file was created: {:?}", event.paths);
+                        }
+                        EventKind::Remove(_) => {
+                            info!("A file was removed: {:?}", event.paths);
+                        }
+                        EventKind::Modify(_) => {
+                            info!("A file was modified: {:?}", event.paths);
+                        }
+                        EventKind::Access(_) => {
+                            info!("A file was accessed: {:?}", event.paths);
+                        }
+                        EventKind::Other | EventKind::Any => {
+                            info!("Other or Any event: {:?}", event);
+                        }
                     }
-                    EventKind::Remove(_) => {
-                        info!("A file was removed: {:?}", event.paths);
+                    if let Some(pattern) = find_pattern(&event, &spy) {
+                        info!("pattern: {:?}", pattern);
+                        let status = execute_command(&event, &spy, &pattern);
+                        match status {
+                            Ok(s) => info!("Success status: {:?}", s),
+                            Err(e) => error!("Error status: {:?}", e),
+                        }
                     }
-                    EventKind::Modify(_) => {
-                        info!("A file was modified: {:?}", event.paths);
-                    }
-                    EventKind::Access(_) => {
-                        info!("A file was accessed: {:?}", event.paths);
-                    }
-                    EventKind::Other | EventKind::Any => {
-                        info!("Other or Any event: {:?}", event);
-                    }
-                },
+                }
                 Message::Stop => {
                     info!("watch stop");
                     break;
@@ -120,15 +226,17 @@ fn watcher(
     Ok((handle, tx, watcher))
 }
 
+#[tracing::instrument]
+#[logfn(Info)]
 fn main() -> Result<()> {
     let m = build_cmd_map()?;
-    dbg!(&m);
+    debug!("{:?}", &m);
 
     let cli = Cli::parse();
-    dbg!(&cli);
+    debug!("{:?}", &cli);
 
     let settings = Settings::new(cli.config)?.rebuild();
-    dbg!(&settings);
+    debug!("{:?}", &settings);
 
     let (guard1, guard2) = logger::init(settings.clone(), &m)?;
     defer!({
@@ -136,7 +244,7 @@ fn main() -> Result<()> {
         drop(guard2);
     });
 
-    info!("start !");
+    debug!("start !");
 
     let results = settings
         .spys

@@ -1,12 +1,13 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/09/24 10:38:42.
+// Last Change : 2023/09/24 22:20:34.
 // =============================================================================
 
 use std::path::Path;
 
 use config::{Config, ConfigError, Environment, File};
+use log_derive::logfn;
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Deserialize, Clone)]
@@ -19,7 +20,7 @@ pub struct Log {
 pub struct Pattern {
     pub extension: String,
     pub cmd: String,
-    pub arg: String,
+    pub arg: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -39,6 +40,7 @@ pub struct Settings {
 }
 
 impl Settings {
+    #[logfn(Info)]
     pub fn new<P: AsRef<Path>>(cfg: P) -> Result<Self, ConfigError> {
         let s = Config::builder()
             .add_source(File::with_name(cfg.as_ref().to_str().unwrap()))
@@ -49,6 +51,8 @@ impl Settings {
         s.try_deserialize()
     }
 
+    #[tracing::instrument]
+    #[logfn(Info)]
     pub fn rebuild(&self) -> Settings {
         let default_spy = Spy::default();
         let default_spy = self
@@ -86,6 +90,8 @@ impl Settings {
 }
 
 impl Default for Spy {
+    #[tracing::instrument]
+    #[logfn(Info)]
     fn default() -> Self {
         Self {
             name: "default".to_string(),
@@ -96,28 +102,32 @@ impl Default for Spy {
                 Pattern {
                     extension: "ps1".to_string(),
                     cmd: "powershell".to_string(),
-                    arg: "-NoProfile -File {{input}}".to_string(),
+                    arg: ["-NoProfile", "-File", "{{input}}"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                 },
                 Pattern {
                     extension: "cmd".to_string(),
                     cmd: "cmd".to_string(),
-                    arg: "/c {{input}}".to_string(),
+                    arg: ["/c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
                 },
                 Pattern {
                     extension: "bat".to_string(),
                     cmd: "cmd".to_string(),
-                    arg: "/c {{input}}".to_string(),
+                    arg: ["/c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
                 },
                 Pattern {
                     extension: "sh".to_string(),
                     cmd: "bash".to_string(),
-                    arg: "-c {{input}}".to_string(),
+                    arg: ["-c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
                 },
             ]),
         }
     }
 }
 
+#[logfn(Info)]
 fn is_valid_event_kind<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<String>>, D::Error> {
     let opt = Option::<Vec<String>>::deserialize(d)?;
     if let Some(v) = opt {
