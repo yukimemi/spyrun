@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/09/23 22:25:50.
+// Last Change : 2023/09/24 10:38:42.
 // =============================================================================
 
 use std::path::Path;
@@ -25,7 +25,7 @@ pub struct Pattern {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Spy {
     pub name: String,
-    #[serde(deserialize_with = "is_valid_event_kind")]
+    #[serde(default, deserialize_with = "is_valid_event_kind")]
     pub events: Option<Vec<String>>,
     pub input: Option<String>,
     pub output: Option<String>,
@@ -66,7 +66,7 @@ impl Settings {
                 } else {
                     Spy {
                         name: spy.name.clone(),
-                        events: spy.events.clone(),
+                        events: spy.events.clone().or(default_spy.events.clone()),
                         input: spy.input.clone().or(default_spy.input.clone()),
                         output: spy.output.clone().or(default_spy.output.clone()),
                         patterns: spy

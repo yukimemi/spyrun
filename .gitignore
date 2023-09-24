@@ -19,5 +19,9 @@ target/
 *.log
 .vim/
 in/
+in2/
+input/
 logs/
 out/
+out2/
+output/

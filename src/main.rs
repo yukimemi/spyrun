@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/23 22:51:09.
+// Last Change : 2023/09/24 02:25:22.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -12,6 +12,7 @@ mod settings;
 use std::{
     collections::HashMap,
     env,
+    fs::canonicalize,
     path::{Path, PathBuf},
     sync::mpsc,
     thread,
@@ -22,8 +23,14 @@ use chrono::Local;
 use clap::Parser;
 use go_defer::defer;
 use notify::{EventKind, RecursiveMode, Watcher};
-use settings::Settings;
-use tracing::info;
+use rayon::prelude::*;
+use settings::{Settings, Spy};
+use tracing::{error, info};
+
+enum Message {
+    Event(notify::Event),
+    Stop,
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -59,11 +66,59 @@ fn build_cmd_map() -> Result<HashMap<String, String>> {
     Ok(m)
 }
 
-// 設定ファイルを1つ受取、 notify イベントを監視して、設定ファイルに従って処理を行う
-// fn watcher(settings: Settings, m: HashMap<String, String>) -> Result<()> {
-//     let (tx, rx) = mpsc::channel();
-//     let mut watcher = notify::recommended_watcher(tx)?;
-// }
+fn watcher(
+    spy: Spy,
+) -> Result<(
+    std::thread::JoinHandle<()>,
+    mpsc::Sender<Message>,
+    notify::RecommendedWatcher,
+)> {
+    let (tx, rx) = mpsc::channel();
+    let tx_clone = tx.clone();
+    let mut watcher = notify::recommended_watcher(move |res| match res {
+        Ok(event) => {
+            tx_clone.send(Message::Event(event)).unwrap();
+        }
+        Err(e) => {
+            error!("watch error: {:?}", e);
+        }
+    })?;
+    let input = spy.input.expect("spy.input is None");
+    let input = canonicalize(input)?;
+    info!("watching {}", &input.display());
+    watcher.watch(Path::new(&input), RecursiveMode::Recursive)?;
+
+    let handle = thread::spawn(move || {
+        for msg in rx.into_iter() {
+            match msg {
+                Message::Event(event) => match event.kind {
+                    EventKind::Create(_) => {
+                        info!("A file was created: {:?}", event.paths);
+                    }
+                    EventKind::Remove(_) => {
+                        info!("A file was removed: {:?}", event.paths);
+                    }
+                    EventKind::Modify(_) => {
+                        info!("A file was modified: {:?}", event.paths);
+                    }
+                    EventKind::Access(_) => {
+                        info!("A file was accessed: {:?}", event.paths);
+                    }
+                    EventKind::Other | EventKind::Any => {
+                        info!("Other or Any event: {:?}", event);
+                    }
+                },
+                Message::Stop => {
+                    info!("watch stop");
+                    break;
+                }
+            }
+        }
+        info!("channel closed");
+    });
+
+    Ok((handle, tx, watcher))
+}
 
 fn main() -> Result<()> {
     let m = build_cmd_map()?;
@@ -83,39 +138,27 @@ fn main() -> Result<()> {
 
     info!("start !");
 
-    let (tx, rx) = mpsc::channel();
-    let mut watcher = notify::recommended_watcher(tx)?;
-
-    watcher.watch(Path::new("."), RecursiveMode::Recursive)?;
-
-    thread::spawn(move || {
-        for res in rx.into_iter() {
-            match res {
-                Ok(event) => match event.kind {
-                    EventKind::Create(_) => {
-                        info!("A file was created: {:?}", event.paths);
-                    }
-                    EventKind::Remove(_) => {
-                        info!("A file was removed: {:?}", event.paths);
-                    }
-                    EventKind::Modify(_) => {
-                        info!("A file was modified: {:?}", event.paths);
-                    }
-                    EventKind::Access(_) => {
-                        info!("A file was accessed: {:?}", event.paths);
-                    }
-                    EventKind::Other | EventKind::Any => {
-                        info!("Other or Any event: {:?}", event);
-                    }
-                },
-                Err(e) => info!("watch error: {:?}", e),
-            }
-        }
-        info!("channel closed");
-    });
+    let results = settings
+        .spys
+        .iter()
+        .map(|spy| watcher(spy.clone()))
+        .collect::<Result<Vec<_>>>()?;
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
+
+    results.into_par_iter().for_each(|result| {
+        let (handle, tx, _) = result;
+        tx.send(Message::Stop).unwrap();
+        match handle.join() {
+            Ok(_) => {
+                info!("watch thread joined");
+            }
+            Err(e) => {
+                error!("watch thread error: {:?}", e);
+            }
+        }
+    });
 
     Ok(())
 }

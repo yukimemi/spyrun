@@ -3,36 +3,7 @@ path = "{{cwd}}/logs/{{cmd_stem}}.log"
 level = "debug"
 
 [[spys]]
-name = "default"
-events = ["Create","Modify"]
-input = "./in"
-output = "./out"
-
-[[spys.patterns]]
-extension = "ps1"
-cmd = "powershell"
-arg = "-NoProfile -File {{input}}"
-
-[[spys.patterns]]
-extension = "cmd"
-cmd = "cmd"
-arg = "/c {{input}}"
-
-[[spys.patterns]]
-extension = "bat"
-cmd = "cmd"
-arg = "/c {{input}}"
-
-[[spys.patterns]]
-extension = "sh"
-cmd = "bash"
-arg = "-c {{input}}"
-
-[[spys]]
 name = "some1"
-events = ["Create","Modify", "Remove"]
-input = "./in"
-output = "./out"
 
 [[spys.patterns]]
 extension = "ps1"
