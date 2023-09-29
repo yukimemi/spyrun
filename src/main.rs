@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/25 01:46:18.
+// Last Change : 2023/09/30 00:10:24.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -17,6 +17,7 @@ use std::{
     process::{Command, ExitStatus},
     sync::mpsc,
     thread,
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -25,6 +26,7 @@ use clap::Parser;
 use go_defer::defer;
 use log_derive::logfn;
 use notify::{EventKind, RecursiveMode, Watcher};
+use notify_debouncer_full::{new_debouncer, notify::*, DebounceEventResult, Debouncer, FileIdMap};
 use rayon::prelude::*;
 use settings::{Pattern, Settings, Spy};
 use tracing::{debug, error, info};
@@ -113,28 +115,28 @@ fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
 
 #[tracing::instrument]
 #[logfn(Info)]
-fn execute_command(event: &notify::Event, spy: &Spy, pattern: &Pattern) -> Result<ExitStatus> {
-    create_dir_all(spy.output.as_ref().unwrap())?;
+fn execute_command(
+    event_path: &PathBuf,
+    name: &str,
+    output: &str,
+    cmd: &str,
+    arg: Vec<String>,
+) -> Result<ExitStatus> {
+    create_dir_all(output)?;
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
-    let stdout_path = PathBuf::from(&spy.output.as_ref().unwrap())
-        .join(format!("{}_stdout_{}.log", &spy.name, now));
-    create_dir_all(spy.output.as_ref().unwrap())?;
+    let stdout_path = PathBuf::from(&output).join(format!("{}_stdout_{}.log", &name, now));
     let stdout_file = OpenOptions::new()
         .write(true)
         .append(true)
         .create(true)
         .open(&stdout_path)?;
-    let stderr_path = PathBuf::from(&spy.output.as_ref().unwrap())
-        .join(format!("{}_stderr_{}.log", &spy.name, now));
+    let stderr_path = PathBuf::from(&output).join(format!("{}_stderr_{}.log", &name, now));
     let stderr_file = OpenOptions::new()
         .write(true)
         .append(true)
         .create(true)
         .open(&stderr_path)?;
-    let event_path = event.paths.last().unwrap();
-    let cmd = &pattern.cmd;
-    let arg = &pattern
-        .arg
+    let arg = &arg
         .iter()
         .map(|s| {
             if s.contains("{{input}}") {
@@ -167,62 +169,87 @@ fn watcher(
 ) -> Result<(
     std::thread::JoinHandle<()>,
     mpsc::Sender<Message>,
-    notify::RecommendedWatcher,
+    Debouncer<FsEventWatcher, FileIdMap>,
 )> {
     let (tx, rx) = mpsc::channel();
     let tx_clone = tx.clone();
-    let mut watcher = notify::recommended_watcher(move |res| match res {
-        Ok(event) => {
-            tx_clone.send(Message::Event(event)).unwrap();
-        }
-        Err(e) => {
-            error!("watch error: {:?}", e);
-        }
-    })?;
+    let mut debouncer = new_debouncer(
+        Duration::from_secs(1),
+        None,
+        move |res: DebounceEventResult| match res {
+            Ok(events) => events.into_iter().for_each(|event| {
+                tx_clone.send(Message::Event(event.event)).unwrap();
+            }),
+            Err(e) => {
+                error!("watch error: {:?}", e);
+            }
+        },
+    )?;
     let input = spy.clone().input.expect("spy.input is None");
     info!("watching {}", &input);
-    watcher.watch(Path::new(&input), RecursiveMode::Recursive)?;
+    debouncer
+        .watcher()
+        .watch(Path::new(&input), RecursiveMode::Recursive)?;
 
+    let (tx2, rx2) = mpsc::channel();
     let handle = thread::spawn(move || {
-        for msg in rx.into_iter() {
-            match msg {
-                Message::Event(event) => {
-                    match event.kind {
-                        EventKind::Create(_) => {
-                            info!("A file was created: {:?}", event.paths);
+        rayon::scope(|s| {
+            for msg in rx {
+                match msg {
+                    Message::Event(event) => {
+                        match event.kind {
+                            EventKind::Create(_) => {
+                                info!("A file was created: {:?}", event.paths);
+                            }
+                            EventKind::Remove(_) => {
+                                info!("A file was removed: {:?}", event.paths);
+                            }
+                            EventKind::Modify(_) => {
+                                info!("A file was modified: {:?}", event.paths);
+                            }
+                            EventKind::Access(_) => {
+                                info!("A file was accessed: {:?}", event.paths);
+                            }
+                            EventKind::Other | EventKind::Any => {
+                                info!("Other or Any event: {:?}", event);
+                            }
                         }
-                        EventKind::Remove(_) => {
-                            info!("A file was removed: {:?}", event.paths);
-                        }
-                        EventKind::Modify(_) => {
-                            info!("A file was modified: {:?}", event.paths);
-                        }
-                        EventKind::Access(_) => {
-                            info!("A file was accessed: {:?}", event.paths);
-                        }
-                        EventKind::Other | EventKind::Any => {
-                            info!("Other or Any event: {:?}", event);
+                        if let Some(pattern) = find_pattern(&event, &spy) {
+                            let tx2 = tx2.clone();
+                            let spy = spy.clone();
+                            let event = event.clone();
+                            info!("pattern: {:?}", pattern);
+                            s.spawn(move |_| {
+                                let status = execute_command(
+                                    event.paths.last().unwrap(),
+                                    &spy.name,
+                                    &spy.output.unwrap(),
+                                    &pattern.cmd,
+                                    pattern.arg,
+                                );
+                                tx2.send(status).unwrap();
+                            });
                         }
                     }
-                    if let Some(pattern) = find_pattern(&event, &spy) {
-                        info!("pattern: {:?}", pattern);
-                        let status = execute_command(&event, &spy, &pattern);
-                        match status {
-                            Ok(s) => info!("Success status: {:?}", s),
-                            Err(e) => error!("Error status: {:?}", e),
-                        }
+                    Message::Stop => {
+                        info!("watch stop !");
+                        break;
                     }
-                }
-                Message::Stop => {
-                    info!("watch stop");
-                    break;
                 }
             }
-        }
-        info!("channel closed");
+            info!("channel closed");
+        });
+        drop(tx2);
+        rx2.into_iter().for_each(|status| {
+            debug!("rx2 received: {:?}", status);
+            match status {
+                Ok(s) => info!("Command success status: {:?}", s),
+                Err(e) => error!("Command error status: {:?}", e),
+            }
+        });
     });
 
-    Ok((handle, tx, watcher))
+    Ok((handle, tx, debouncer))
 }
 
 #[tracing::instrument]
