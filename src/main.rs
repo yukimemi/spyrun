@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 14:11:33.
+// Last Change : 2023/09/30 14:19:48.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -277,10 +277,13 @@ fn main() -> Result<()> {
     let cmd_line = &m["cmd_line"];
     debug!("cmd_line: {}", &cmd_line);
     let hash = hex_digest(Algorithm::SHA256, cmd_line.as_bytes());
+    #[cfg(not(target_os = "windows"))]
+    let hash = env::temp_dir().join(hash);
+    #[cfg(not(target_os = "windows"))]
+    let hash = hash.to_string_lossy();
+
     debug!("hash: {}", &hash);
-    let hash_path = env::temp_dir().join(&hash);
-    debug!("hash_path: {}", &hash_path.display());
-    let instance = SingleInstance::new(&hash_path.to_string_lossy())?;
+    let instance = SingleInstance::new(&hash)?;
     if !instance.is_single() {
         let warn_msg = format!("Another instance is already running. [{}]", &cmd_line);
         warn!("{}", &warn_msg);
