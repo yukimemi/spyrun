@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 00:10:24.
+// Last Change : 2023/09/30 11:58:54.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -25,8 +25,8 @@ use chrono::Local;
 use clap::Parser;
 use go_defer::defer;
 use log_derive::logfn;
-use notify::{EventKind, RecursiveMode, Watcher};
-use notify_debouncer_full::{new_debouncer, notify::*, DebounceEventResult, Debouncer, FileIdMap};
+use notify::{EventKind, FsEventWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
 use rayon::prelude::*;
 use settings::{Pattern, Settings, Spy};
 use tracing::{debug, error, info};
