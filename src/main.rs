@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 12:15:43.
+// Last Change : 2023/09/30 13:53:37.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -20,16 +20,18 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use chrono::Local;
 use clap::Parser;
+use crypto_hash::{hex_digest, Algorithm};
 use go_defer::defer;
 use log_derive::logfn;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
 use rayon::prelude::*;
 use settings::{Pattern, Settings, Spy};
-use tracing::{debug, error, info};
+use single_instance::SingleInstance;
+use tracing::{debug, error, info, warn};
 
 enum Message {
     Event(notify::Event),
@@ -64,6 +66,8 @@ fn build_cmd_map() -> Result<HashMap<String, String>> {
     m.insert("cmd_name".to_string(), cmd_name);
     let cmd_stem = cmd_file.file_stem().unwrap().to_string_lossy().to_string();
     m.insert("cmd_stem".to_string(), cmd_stem);
+    let cmd_args = env::args().collect::<Vec<String>>().join(" ");
+    m.insert("cmd_args".to_string(), cmd_args);
     let now = Local::now().format("%Y%m%d%H%M%S%3f").to_string();
     m.insert("now".to_string(), now);
     let cwd = env::current_dir()?.to_string_lossy().to_string();
@@ -269,6 +273,17 @@ fn main() -> Result<()> {
         drop(guard1);
         drop(guard2);
     });
+
+    let cmd_args = &m["cmd_args"];
+    info!("cmd_args: {}", &cmd_args);
+    let hash = hex_digest(Algorithm::SHA256, cmd_args.as_bytes());
+    info!("hash: {}", &hash);
+    let instance = SingleInstance::new(&hash)?;
+    if !instance.is_single() {
+        let warn_msg = format!("Another instance is already running. [{}]", &cmd_args);
+        warn!("{}", &warn_msg);
+        bail!(warn_msg);
+    }
 
     debug!("start !");
 

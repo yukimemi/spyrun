@@ -10,6 +10,7 @@ anyhow = "1.0.75"
 chrono = "0.4.30"
 clap = { version = "4.3.8", features = ["derive", "env", "cargo", "unicode"] }
 config = "0.13.3"
+crypto-hash = "0.3.4"
 duct = "0.13.6"
 go-defer = "0.1.0"
 itertools = "0.11.0"
@@ -21,6 +22,7 @@ rayon = "1.8.0"
 regex = "1.9.1"
 serde = "1.0.178"
 serde_derive = "1.0.178"
+single-instance = "0.3.3"
 text_placeholder = "0.5.0"
 time = { version = "0.3.24", features = ["macros", "local-offset"] }
 tracing = { version = "0.1.37", features = ["log", "attributes", "std", "tracing-attributes"] }
