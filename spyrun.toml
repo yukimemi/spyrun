@@ -1,3 +1,7 @@
+[vars]
+base_path = "/Users/yukimemi/src/github.com/yukimemi/spyrun"
+version = "0.1.0"
+
 [log]
 path = "{{cwd}}/logs/{{cmd_stem}}.log"
 level = "debug"
@@ -7,13 +11,13 @@ name = "some1"
 events = ["Modify"]
 
 [[spys.patterns]]
-extension = "ps1"
+pattern = "\\.ps1$"
 cmd = "powershell"
 arg = ["-NoProfile", "-File", "{{input}}"]
 
 [[spys]]
 name = "some2"
 events = ["Create","Modify"]
-input = "./in2"
-output = "./out2"
+input = "{{base_path}}/in2"
+output = "{{base_path}}/out2"
 

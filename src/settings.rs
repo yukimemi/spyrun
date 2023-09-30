@@ -1,14 +1,20 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/09/29 01:40:46.
+// Last Change : 2023/09/30 23:04:57.
 // =============================================================================
 
-use std::path::Path;
+use std::{collections::HashMap, env, path::Path};
 
-use config::{Config, ConfigError, Environment, File};
+use anyhow::Result;
 use log_derive::logfn;
 use serde::{Deserialize, Deserializer};
+use tera::{Context, Tera, Value};
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Vars {
+    pub vars: HashMap<String, String>,
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Log {
@@ -18,7 +24,7 @@ pub struct Log {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Pattern {
-    pub extension: String,
+    pub pattern: String,
     pub cmd: String,
     pub arg: Vec<String>,
 }
@@ -40,19 +46,34 @@ pub struct Settings {
 }
 
 impl Settings {
-    #[logfn(Info)]
-    pub fn new<P: AsRef<Path>>(cfg: P) -> Result<Self, ConfigError> {
-        let s = Config::builder()
-            .add_source(File::with_name(cfg.as_ref().to_str().unwrap()))
-            .add_source(File::with_name("local").required(false))
-            .add_source(Environment::with_prefix("app"))
-            .build()?;
+    #[logfn(Debug)]
+    pub fn new<P: AsRef<Path>>(cfg: P, context: &mut Context) -> Result<Self> {
+        let mut tera = Tera::default();
+        let toml_str = std::fs::read_to_string(&cfg)?;
+        tera.add_raw_template(&cfg.as_ref().to_string_lossy(), &toml_str)?;
+        tera.register_function("env", |args: &HashMap<String, Value>| {
+            let name = match args.get("name") {
+                Some(val) => val.as_str().unwrap(),
+                None => return Err("name is required".into()),
+            };
+            Ok(Value::String(env::var(name).unwrap_or_default()))
+        });
+        context.insert("input", "{{ input }}");
 
-        s.try_deserialize()
+        let toml_value: toml::Value = toml::from_str(&toml_str)?;
+        if let Some(vars) = toml_value.get("vars") {
+            vars.as_table().unwrap().iter().for_each(|(k, v)| {
+                context.insert(k, v);
+            })
+        }
+
+        let toml_str = tera.render(&cfg.as_ref().to_string_lossy(), context)?;
+
+        Ok(toml::from_str(&toml_str)?)
     }
 
     #[tracing::instrument]
-    #[logfn(Info)]
+    #[logfn(Debug)]
     pub fn rebuild(&self) -> Settings {
         let default_spy = Spy::default();
         let default_spy = self
@@ -91,7 +112,7 @@ impl Settings {
 
 impl Default for Spy {
     #[tracing::instrument]
-    #[logfn(Info)]
+    #[logfn(Debug)]
     fn default() -> Self {
         Self {
             name: "default".to_string(),
@@ -100,7 +121,7 @@ impl Default for Spy {
             output: Some("output".to_string()),
             patterns: Some(vec![
                 Pattern {
-                    extension: "ps1".to_string(),
+                    pattern: "\\.ps1$".to_string(),
                     cmd: "powershell".to_string(),
                     arg: ["-NoProfile", "-File", "{{input}}"]
                         .iter()
@@ -108,17 +129,17 @@ impl Default for Spy {
                         .collect(),
                 },
                 Pattern {
-                    extension: "cmd".to_string(),
+                    pattern: "\\.cmd$".to_string(),
                     cmd: "cmd".to_string(),
                     arg: ["/c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
                 },
                 Pattern {
-                    extension: "bat".to_string(),
+                    pattern: "\\.bat$".to_string(),
                     cmd: "cmd".to_string(),
                     arg: ["/c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
                 },
                 Pattern {
-                    extension: "sh".to_string(),
+                    pattern: "\\.sh$".to_string(),
                     cmd: "bash".to_string(),
                     arg: ["-c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
                 },
@@ -127,7 +148,7 @@ impl Default for Spy {
     }
 }
 
-#[logfn(Info)]
+#[logfn(Debug)]
 fn is_valid_event_kind<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<String>>, D::Error> {
     let opt = Option::<Vec<String>>::deserialize(d)?;
     if let Some(v) = opt {

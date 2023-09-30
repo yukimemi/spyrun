@@ -1,13 +1,13 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/09/24 23:27:50.
+// Last Change : 2023/09/30 22:48:42.
 // =============================================================================
 
-use std::{collections::HashMap, env, fs::create_dir_all, path::Path};
+use std::{env, fs::create_dir_all, path::Path};
 
 use anyhow::Result;
-use text_placeholder::Template;
+use tera::Context;
 use time::UtcOffset;
 use tracing_appender::non_blocking;
 use tracing_log::LogTracer;
@@ -21,23 +21,22 @@ use super::settings::Settings;
 
 pub fn init(
     settings: Settings,
-    rep_map: &HashMap<String, String>,
+    context: &mut Context,
 ) -> Result<(
     tracing_appender::non_blocking::WorkerGuard,
     tracing_appender::non_blocking::WorkerGuard,
 )> {
     LogTracer::init()?;
 
-    let hashmap: HashMap<&str, &str> = rep_map
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    let log_tpl = Template::new(&settings.log.path);
-    let log_path = log_tpl.fill_with_hashmap(&hashmap);
-    let log_dir = Path::new(&log_path).parent().unwrap();
-    let log_name = Path::new(&log_path).file_name().unwrap();
+    let log_file = Path::new(&settings.log.path);
+    context.insert("log_file", &log_file.to_string_lossy());
+    let log_dir = log_file.parent().unwrap();
+    context.insert("log_dir", &log_dir.to_string_lossy());
+    let log_name = log_file.file_name().unwrap();
+    context.insert("log_name", &log_name.to_string_lossy());
+    context.insert("log_stem", &log_file.file_stem().unwrap().to_string_lossy());
 
-    create_dir_all(log_dir)?;
+    create_dir_all(&log_dir)?;
 
     let time_format = time::format_description::well_known::Iso8601::DEFAULT;
     // let timer = LocalTime::new(time_format); // issues: https://github.com/tokio-rs/tracing/issues/2715

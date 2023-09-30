@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 14:19:48.
+// Last Change : 2023/09/30 23:35:26.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -10,7 +10,6 @@ mod logger;
 mod settings;
 
 use std::{
-    collections::HashMap,
     env,
     fs::{create_dir_all, OpenOptions},
     path::{Path, PathBuf},
@@ -29,8 +28,10 @@ use log_derive::logfn;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
 use rayon::prelude::*;
+use regex::Regex;
 use settings::{Pattern, Settings, Spy};
 use single_instance::SingleInstance;
+use tera::Context;
 use tracing::{debug, error, info, warn};
 
 enum Message {
@@ -51,33 +52,26 @@ struct Cli {
 }
 
 #[tracing::instrument]
-#[logfn(Info)]
-fn build_cmd_map() -> Result<HashMap<String, String>> {
+#[logfn(Debug)]
+fn build_cmd_map() -> Result<Context> {
     let cmd_file = env::current_exe()?;
     debug!("{:?}", &cmd_file);
 
-    let mut m: HashMap<String, String> = HashMap::new();
+    let mut context = Context::new();
 
-    let cmd = cmd_file.to_string_lossy().to_string();
-    m.insert("cmd_file".to_string(), cmd);
-    let cmd_dir = cmd_file.parent().unwrap().to_string_lossy().to_string();
-    m.insert("cmd_dir".to_string(), cmd_dir);
-    let cmd_name = cmd_file.file_name().unwrap().to_string_lossy().to_string();
-    m.insert("cmd_name".to_string(), cmd_name);
-    let cmd_stem = cmd_file.file_stem().unwrap().to_string_lossy().to_string();
-    m.insert("cmd_stem".to_string(), cmd_stem);
-    let cmd_line = env::args().collect::<Vec<String>>().join(" ");
-    m.insert("cmd_line".to_string(), cmd_line);
-    let now = Local::now().format("%Y%m%d%H%M%S%3f").to_string();
-    m.insert("now".to_string(), now);
-    let cwd = env::current_dir()?.to_string_lossy().to_string();
-    m.insert("cwd".to_string(), cwd);
+    context.insert("cmd_file", &cmd_file.to_string_lossy());
+    context.insert("cmd_dir", &cmd_file.parent().unwrap().to_string_lossy());
+    context.insert("cmd_name", &cmd_file.file_name().unwrap().to_string_lossy());
+    context.insert("cmd_stem", &cmd_file.file_stem().unwrap().to_string_lossy());
+    context.insert("cmd_line", &env::args().collect::<Vec<String>>().join(" "));
+    context.insert("now", &Local::now().format("%Y%m%d%H%M%S%3f").to_string());
+    context.insert("cwd", &env::current_dir()?.to_string_lossy());
 
-    Ok(m)
+    Ok(context)
 }
 
 #[tracing::instrument]
-#[logfn(Info)]
+#[logfn(Debug)]
 fn event_kind_to_string(kind: EventKind) -> String {
     match kind {
         EventKind::Create(_) => "Create".to_string(),
@@ -89,27 +83,25 @@ fn event_kind_to_string(kind: EventKind) -> String {
 }
 
 #[tracing::instrument]
-#[logfn(Info)]
+#[logfn(Debug)]
 fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
     let event_kind = event_kind_to_string(event.kind);
     let event_path = event.paths.last().unwrap();
-    let event_ext = event_path
-        .extension()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_string();
+    info!(
+        "event_kind: {}, event_path: {}",
+        &event_kind,
+        &event_path.to_string_lossy()
+    );
     let event_match = spy
         .events
         .as_ref()
         .unwrap()
         .iter()
         .any(|e| e == &event_kind);
-    let match_pattern = spy
-        .patterns
-        .as_ref()
-        .unwrap()
-        .iter()
-        .find(|p| p.extension == "*" || p.extension == event_ext);
+    let match_pattern = spy.patterns.as_ref().unwrap().iter().find(|p| {
+        let re = Regex::new(&p.pattern).unwrap();
+        re.is_match(&event_path.to_string_lossy())
+    });
     if event_match {
         match_pattern.cloned()
     } else {
@@ -118,7 +110,7 @@ fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
 }
 
 #[tracing::instrument]
-#[logfn(Info)]
+#[logfn(Debug)]
 fn execute_command(
     event_path: &PathBuf,
     name: &str,
@@ -152,7 +144,7 @@ fn execute_command(
         })
         .collect::<Vec<_>>();
     info!(
-        "cmd: {}, arg: {}, stdout: {}, stderr: {}",
+        "Execute cmd: {}, arg: {}, stdout: {}, stderr: {}",
         cmd,
         arg.join(" "),
         stdout_path.display(),
@@ -167,7 +159,7 @@ fn execute_command(
 }
 
 #[tracing::instrument]
-#[logfn(Info)]
+#[logfn(Debug)]
 fn watcher(
     spy: Spy,
 ) -> Result<(
@@ -197,27 +189,19 @@ fn watcher(
 
     let (tx2, rx2) = mpsc::channel();
     let handle = thread::spawn(move || {
+        let handle = thread::spawn(|| {
+            rx2.into_iter().for_each(|status| {
+                debug!("rx2 received: {:?}", status);
+                match status {
+                    Ok(s) => info!("Command success status: {:?}", s),
+                    Err(e) => error!("Command error status: {:?}", e),
+                }
+            });
+        });
         rayon::scope(|s| {
             for msg in rx {
                 match msg {
                     Message::Event(event) => {
-                        match event.kind {
-                            EventKind::Create(_) => {
-                                info!("A file was created: {:?}", event.paths);
-                            }
-                            EventKind::Remove(_) => {
-                                info!("A file was removed: {:?}", event.paths);
-                            }
-                            EventKind::Modify(_) => {
-                                info!("A file was modified: {:?}", event.paths);
-                            }
-                            EventKind::Access(_) => {
-                                info!("A file was accessed: {:?}", event.paths);
-                            }
-                            EventKind::Other | EventKind::Any => {
-                                info!("Other or Any event: {:?}", event);
-                            }
-                        }
                         if let Some(pattern) = find_pattern(&event, &spy) {
                             let tx2 = tx2.clone();
                             let spy = spy.clone();
@@ -244,37 +228,31 @@ fn watcher(
             info!("channel closed");
         });
         drop(tx2);
-        rx2.into_iter().for_each(|status| {
-            debug!("rx2 received: {:?}", status);
-            match status {
-                Ok(s) => info!("Command success status: {:?}", s),
-                Err(e) => error!("Command error status: {:?}", e),
-            }
-        });
+        handle.join().unwrap();
     });
 
     Ok((handle, tx, debouncer))
 }
 
 #[tracing::instrument]
-#[logfn(Info)]
+#[logfn(Debug)]
 fn main() -> Result<()> {
-    let m = build_cmd_map()?;
-    debug!("{:?}", &m);
+    let mut context = build_cmd_map()?;
+    debug!("{:?}", &context);
 
     let cli = Cli::parse();
     debug!("{:?}", &cli);
 
-    let settings = Settings::new(cli.config)?.rebuild();
+    let settings = Settings::new(cli.config, &mut context)?.rebuild();
     debug!("{:?}", &settings);
 
-    let (guard1, guard2) = logger::init(settings.clone(), &m)?;
+    let (guard1, guard2) = logger::init(settings.clone(), &mut context)?;
     defer!({
         drop(guard1);
         drop(guard2);
     });
 
-    let cmd_line = &m["cmd_line"];
+    let cmd_line = context.get("cmd_line").unwrap().as_str().unwrap();
     debug!("cmd_line: {}", &cmd_line);
     let hash = hex_digest(Algorithm::SHA256, cmd_line.as_bytes());
     #[cfg(not(target_os = "windows"))]
