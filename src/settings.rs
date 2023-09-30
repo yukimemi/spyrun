@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 23:04:57.
+// Last Change : 2023/10/01 00:15:13.
 // =============================================================================
 
 use std::{collections::HashMap, env, path::Path};
@@ -59,6 +59,8 @@ impl Settings {
             Ok(Value::String(env::var(name).unwrap_or_default()))
         });
         context.insert("input", "{{ input }}");
+        context.insert("output", "{{ output }}");
+        context.insert("event_path", "{{ event_path }}");
 
         let toml_value: toml::Value = toml::from_str(&toml_str)?;
         if let Some(vars) = toml_value.get("vars") {

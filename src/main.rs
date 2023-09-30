@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 23:35:26.
+// Last Change : 2023/10/01 00:17:30.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -10,6 +10,7 @@ mod logger;
 mod settings;
 
 use std::{
+    collections::HashMap,
     env,
     fs::{create_dir_all, OpenOptions},
     path::{Path, PathBuf},
@@ -31,7 +32,7 @@ use rayon::prelude::*;
 use regex::Regex;
 use settings::{Pattern, Settings, Spy};
 use single_instance::SingleInstance;
-use tera::Context;
+use tera::{Context, Tera, Value};
 use tracing::{debug, error, info, warn};
 
 enum Message {
@@ -114,10 +115,13 @@ fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
 fn execute_command(
     event_path: &PathBuf,
     name: &str,
+    input: &str,
     output: &str,
     cmd: &str,
     arg: Vec<String>,
+    context: Context,
 ) -> Result<ExitStatus> {
+    let mut context = context.clone();
     create_dir_all(output)?;
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
     let stdout_path = PathBuf::from(&output).join(format!("{}_stdout_{}.log", &name, now));
@@ -135,12 +139,20 @@ fn execute_command(
     let arg = &arg
         .iter()
         .map(|s| {
-            if s.contains("{{input}}") {
-                s.replace("{{input}}", event_path.to_string_lossy().as_ref())
-                    .to_string()
-            } else {
-                s.to_string()
-            }
+            let mut tera = Tera::default();
+            let event_path = event_path.to_string_lossy();
+            tera.add_raw_template("arg", s).unwrap();
+            tera.register_function("env", |args: &HashMap<String, Value>| {
+                let name = match args.get("name") {
+                    Some(val) => val.as_str().unwrap(),
+                    None => return Err("name is required".into()),
+                };
+                Ok(Value::String(env::var(name).unwrap_or_default()))
+            });
+            context.insert("input", &input);
+            context.insert("output", &output);
+            context.insert("event_path", &event_path);
+            tera.render("arg", &context).unwrap()
         })
         .collect::<Vec<_>>();
     info!(
@@ -162,6 +174,7 @@ fn execute_command(
 #[logfn(Debug)]
 fn watcher(
     spy: Spy,
+    context: Context,
 ) -> Result<(
     std::thread::JoinHandle<()>,
     mpsc::Sender<Message>,
@@ -206,14 +219,17 @@ fn watcher(
                             let tx2 = tx2.clone();
                             let spy = spy.clone();
                             let event = event.clone();
+                            let context = context.clone();
                             info!("pattern: {:?}", pattern);
                             s.spawn(move |_| {
                                 let status = execute_command(
                                     event.paths.last().unwrap(),
                                     &spy.name,
+                                    &spy.input.unwrap(),
                                     &spy.output.unwrap(),
                                     &pattern.cmd,
                                     pattern.arg,
+                                    context,
                                 );
                                 tx2.send(status).unwrap();
                             });
@@ -273,7 +289,7 @@ fn main() -> Result<()> {
     let results = settings
         .spys
         .iter()
-        .map(|spy| watcher(spy.clone()))
+        .map(|spy| watcher(spy.clone(), context.clone()))
         .collect::<Result<Vec<_>>>()?;
 
     let mut input = String::new();

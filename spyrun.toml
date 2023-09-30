@@ -13,7 +13,11 @@ events = ["Modify"]
 [[spys.patterns]]
 pattern = "\\.ps1$"
 cmd = "powershell"
-arg = ["-NoProfile", "-File", "{{input}}"]
+arg = ["-NoProfile", "-File", "{{event_path}}"]
+[[spys.patterns]]
+pattern = "\\.sh$"
+cmd = "bash"
+arg = ["-c", "./{{input}}/{{env(name='SPYRUN_EXECUTE')}}.sh"]
 
 [[spys]]
 name = "some2"
