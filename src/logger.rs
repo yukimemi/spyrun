@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 22:48:42.
+// Last Change : 2023/09/30 23:51:53.
 // =============================================================================
 
 use std::{env, fs::create_dir_all, path::Path};
@@ -36,7 +36,7 @@ pub fn init(
     context.insert("log_name", &log_name.to_string_lossy());
     context.insert("log_stem", &log_file.file_stem().unwrap().to_string_lossy());
 
-    create_dir_all(&log_dir)?;
+    create_dir_all(log_dir)?;
 
     let time_format = time::format_description::well_known::Iso8601::DEFAULT;
     // let timer = LocalTime::new(time_format); // issues: https://github.com/tokio-rs/tracing/issues/2715
