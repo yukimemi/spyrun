@@ -4,6 +4,7 @@ level = "debug"
 
 [[spys]]
 name = "some1"
+events = ["Modify"]
 
 [[spys.patterns]]
 extension = "ps1"

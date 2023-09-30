@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 11:58:54.
+// Last Change : 2023/09/30 12:15:43.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -25,7 +25,7 @@ use chrono::Local;
 use clap::Parser;
 use go_defer::defer;
 use log_derive::logfn;
-use notify::{EventKind, FsEventWatcher, RecursiveMode, Watcher};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
 use rayon::prelude::*;
 use settings::{Pattern, Settings, Spy};
@@ -169,7 +169,7 @@ fn watcher(
 ) -> Result<(
     std::thread::JoinHandle<()>,
     mpsc::Sender<Message>,
-    Debouncer<FsEventWatcher, FileIdMap>,
+    Debouncer<RecommendedWatcher, FileIdMap>,
 )> {
     let (tx, rx) = mpsc::channel();
     let tx_clone = tx.clone();
