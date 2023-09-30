@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 13:53:37.
+// Last Change : 2023/09/30 14:11:33.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -66,8 +66,8 @@ fn build_cmd_map() -> Result<HashMap<String, String>> {
     m.insert("cmd_name".to_string(), cmd_name);
     let cmd_stem = cmd_file.file_stem().unwrap().to_string_lossy().to_string();
     m.insert("cmd_stem".to_string(), cmd_stem);
-    let cmd_args = env::args().collect::<Vec<String>>().join(" ");
-    m.insert("cmd_args".to_string(), cmd_args);
+    let cmd_line = env::args().collect::<Vec<String>>().join(" ");
+    m.insert("cmd_line".to_string(), cmd_line);
     let now = Local::now().format("%Y%m%d%H%M%S%3f").to_string();
     m.insert("now".to_string(), now);
     let cwd = env::current_dir()?.to_string_lossy().to_string();
@@ -274,13 +274,15 @@ fn main() -> Result<()> {
         drop(guard2);
     });
 
-    let cmd_args = &m["cmd_args"];
-    info!("cmd_args: {}", &cmd_args);
-    let hash = hex_digest(Algorithm::SHA256, cmd_args.as_bytes());
-    info!("hash: {}", &hash);
-    let instance = SingleInstance::new(&hash)?;
+    let cmd_line = &m["cmd_line"];
+    debug!("cmd_line: {}", &cmd_line);
+    let hash = hex_digest(Algorithm::SHA256, cmd_line.as_bytes());
+    debug!("hash: {}", &hash);
+    let hash_path = env::temp_dir().join(&hash);
+    debug!("hash_path: {}", &hash_path.display());
+    let instance = SingleInstance::new(&hash_path.to_string_lossy())?;
     if !instance.is_single() {
-        let warn_msg = format!("Another instance is already running. [{}]", &cmd_args);
+        let warn_msg = format!("Another instance is already running. [{}]", &cmd_line);
         warn!("{}", &warn_msg);
         bail!(warn_msg);
     }
