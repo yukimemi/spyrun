@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 17:16:43.
+// Last Change : 2023/10/01 18:38:08.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -289,21 +289,26 @@ fn main() -> Result<()> {
     let results = settings
         .spys
         .iter()
-        .map(|spy| watcher(spy.clone(), context.clone()))
-        .collect::<Result<Vec<_>>>()?;
+        .map(|spy| {
+            watcher(spy.clone(), context.clone())
+                .map_err(|e| error!("watcher error: {:?}", e))
+                .ok()
+        })
+        .collect::<Vec<_>>();
 
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
 
     results.into_par_iter().for_each(|result| {
-        let (handle, tx, _) = result;
-        tx.send(Message::Stop).unwrap();
-        match handle.join() {
-            Ok(_) => {
-                info!("watch thread joined");
-            }
-            Err(e) => {
-                error!("watch thread error: {:?}", e);
+        if let Some((handle, tx, _)) = result {
+            tx.send(Message::Stop).unwrap();
+            match handle.join() {
+                Ok(_) => {
+                    info!("watch thread joined");
+                }
+                Err(e) => {
+                    error!("watch thread error: {:?}", e);
+                }
             }
         }
     });
