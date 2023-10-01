@@ -1,13 +1,14 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 00:17:30.
+// Last Change : 2023/10/01 17:16:43.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
 
 mod logger;
 mod settings;
+mod util;
 
 use std::{
     collections::HashMap,
@@ -34,6 +35,7 @@ use settings::{Pattern, Settings, Spy};
 use single_instance::SingleInstance;
 use tera::{Context, Tera, Value};
 use tracing::{debug, error, info, warn};
+use util::insert_file_context;
 
 enum Message {
     Event(notify::Event),
@@ -60,13 +62,11 @@ fn build_cmd_map() -> Result<Context> {
 
     let mut context = Context::new();
 
-    context.insert("cmd_file", &cmd_file.to_string_lossy());
-    context.insert("cmd_dir", &cmd_file.parent().unwrap().to_string_lossy());
-    context.insert("cmd_name", &cmd_file.file_name().unwrap().to_string_lossy());
-    context.insert("cmd_stem", &cmd_file.file_stem().unwrap().to_string_lossy());
     context.insert("cmd_line", &env::args().collect::<Vec<String>>().join(" "));
     context.insert("now", &Local::now().format("%Y%m%d%H%M%S%3f").to_string());
     context.insert("cwd", &env::current_dir()?.to_string_lossy());
+
+    insert_file_context(&cmd_file, "cmd", &mut context)?;
 
     Ok(context)
 }
@@ -202,7 +202,7 @@ fn watcher(
 
     let (tx2, rx2) = mpsc::channel();
     let handle = thread::spawn(move || {
-        let handle = thread::spawn(|| {
+        let handle2 = thread::spawn(|| {
             rx2.into_iter().for_each(|status| {
                 debug!("rx2 received: {:?}", status);
                 match status {
@@ -244,7 +244,7 @@ fn watcher(
             info!("channel closed");
         });
         drop(tx2);
-        handle.join().unwrap();
+        handle2.join().unwrap();
     });
 
     Ok((handle, tx, debouncer))

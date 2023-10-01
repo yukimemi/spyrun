@@ -1,10 +1,10 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/09/30 23:51:53.
+// Last Change : 2023/10/01 17:58:05.
 // =============================================================================
 
-use std::{env, fs::create_dir_all, path::Path};
+use std::{env, fs::create_dir_all};
 
 use anyhow::Result;
 use tera::Context;
@@ -17,7 +17,7 @@ use tracing_subscriber::{
     EnvFilter, Registry,
 };
 
-use super::settings::Settings;
+use super::{settings::Settings, util::insert_file_context};
 
 pub fn init(
     settings: Settings,
@@ -28,14 +28,10 @@ pub fn init(
 )> {
     LogTracer::init()?;
 
-    let log_file = Path::new(&settings.log.path);
-    context.insert("log_file", &log_file.to_string_lossy());
-    let log_dir = log_file.parent().unwrap();
-    context.insert("log_dir", &log_dir.to_string_lossy());
-    let log_name = log_file.file_name().unwrap();
-    context.insert("log_name", &log_name.to_string_lossy());
-    context.insert("log_stem", &log_file.file_stem().unwrap().to_string_lossy());
+    insert_file_context(&settings.log.path, "log", context)?;
 
+    let log_dir = context.get("log_dir").unwrap().as_str().unwrap();
+    let log_name = context.get("log_name").unwrap().as_str().unwrap();
     create_dir_all(log_dir)?;
 
     let time_format = time::format_description::well_known::Iso8601::DEFAULT;
@@ -68,7 +64,6 @@ pub fn init(
         .boxed();
 
     let registry = Registry::default().with(file_layer).with(stdout_layer);
-
     tracing::subscriber::set_global_default(registry)?;
 
     Ok((file_appender.1, stdout_appender.1))

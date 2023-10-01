@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 00:15:13.
+// Last Change : 2023/10/01 16:46:04.
 // =============================================================================
 
 use std::{collections::HashMap, env, path::Path};
@@ -10,6 +10,8 @@ use anyhow::Result;
 use log_derive::logfn;
 use serde::{Deserialize, Deserializer};
 use tera::{Context, Tera, Value};
+
+use super::util::insert_file_context;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Vars {
@@ -48,6 +50,8 @@ pub struct Settings {
 impl Settings {
     #[logfn(Debug)]
     pub fn new<P: AsRef<Path>>(cfg: P, context: &mut Context) -> Result<Self> {
+        insert_file_context(&cfg, "cfg", context)?;
+
         let mut tera = Tera::default();
         let toml_str = std::fs::read_to_string(&cfg)?;
         tera.add_raw_template(&cfg.as_ref().to_string_lossy(), &toml_str)?;

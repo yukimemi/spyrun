@@ -1,5 +1,5 @@
 [vars]
-base_path = "/Users/yukimemi/src/github.com/yukimemi/spyrun"
+base_path = "/tmp/spyrun"
 version = "0.1.0"
 
 [log]
@@ -21,7 +21,13 @@ arg = ["-c", "./{{input}}/{{env(name='SPYRUN_EXECUTE')}}.sh"]
 
 [[spys]]
 name = "some2"
-events = ["Create","Modify"]
+events = ["Modify"]
+input = "{{cfg_dir}}/in2"
+output = "{{cfg_dir}}/out2"
+
+[[spys]]
+name = "some3"
+events = ["Modify"]
 input = "{{base_path}}/in2"
 output = "{{base_path}}/out2"
 
