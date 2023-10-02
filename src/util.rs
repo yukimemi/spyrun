@@ -1,13 +1,14 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 17:04:57.
+// Last Change : 2023/10/01 21:48:21.
 // =============================================================================
 
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use log_derive::logfn;
+use path_slash::{PathBufExt as _, PathExt as _};
 use tera::Context;
 use tracing::debug;
 
@@ -22,10 +23,10 @@ pub fn insert_file_context<P: AsRef<Path>>(
     if p.is_relative() {
         p = std::env::current_dir()?.join(p);
     }
-    context.insert(format!("{}_path", &prefix), &p.to_string_lossy());
+    context.insert(format!("{}_path", &prefix), &p.to_slash_lossy());
     context.insert(
         format!("{}_dir", &prefix),
-        &p.parent().unwrap().to_string_lossy(),
+        &p.parent().unwrap().to_slash_lossy(),
     );
     context.insert(
         format!("{}_dirname", &prefix),

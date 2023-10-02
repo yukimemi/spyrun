@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 16:46:04.
+// Last Change : 2023/10/02 08:45:09.
 // =============================================================================
 
 use std::{collections::HashMap, env, path::Path};
@@ -47,21 +47,26 @@ pub struct Settings {
     pub spys: Vec<Spy>,
 }
 
+fn new_tera(name: &str, content: &str) -> Result<Tera> {
+    let mut tera = Tera::default();
+    tera.add_raw_template(name, content)?;
+    tera.register_function("env", |args: &HashMap<String, Value>| {
+        let name = match args.get("name") {
+            Some(val) => val.as_str().unwrap(),
+            None => return Err("name is required".into()),
+        };
+        Ok(Value::String(env::var(name).unwrap_or_default()))
+    });
+    Ok(tera)
+}
+
 impl Settings {
     #[logfn(Debug)]
     pub fn new<P: AsRef<Path>>(cfg: P, context: &mut Context) -> Result<Self> {
         insert_file_context(&cfg, "cfg", context)?;
 
-        let mut tera = Tera::default();
         let toml_str = std::fs::read_to_string(&cfg)?;
-        tera.add_raw_template(&cfg.as_ref().to_string_lossy(), &toml_str)?;
-        tera.register_function("env", |args: &HashMap<String, Value>| {
-            let name = match args.get("name") {
-                Some(val) => val.as_str().unwrap(),
-                None => return Err("name is required".into()),
-            };
-            Ok(Value::String(env::var(name).unwrap_or_default()))
-        });
+        let tera = new_tera(&cfg.as_ref().to_string_lossy(), &toml_str)?;
         context.insert("input", "{{ input }}");
         context.insert("output", "{{ output }}");
         context.insert("event_path", "{{ event_path }}");
@@ -69,7 +74,12 @@ impl Settings {
         let toml_value: toml::Value = toml::from_str(&toml_str)?;
         if let Some(vars) = toml_value.get("vars") {
             vars.as_table().unwrap().iter().for_each(|(k, v)| {
-                context.insert(k, v);
+                let mut tera = new_tera("key", k).unwrap();
+                let k = tera.render_str(k, context).unwrap();
+                let v_str = v.as_str().unwrap();
+                let mut tera = new_tera("value", v_str).unwrap();
+                let v = tera.render_str(v_str, context).unwrap();
+                context.insert(k, &v);
             })
         }
 

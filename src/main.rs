@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 18:38:08.
+// Last Change : 2023/10/01 21:56:18.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -29,6 +29,7 @@ use go_defer::defer;
 use log_derive::logfn;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
+use path_slash::PathBufExt as _;
 use rayon::prelude::*;
 use regex::Regex;
 use settings::{Pattern, Settings, Spy};
@@ -64,7 +65,7 @@ fn build_cmd_map() -> Result<Context> {
 
     context.insert("cmd_line", &env::args().collect::<Vec<String>>().join(" "));
     context.insert("now", &Local::now().format("%Y%m%d%H%M%S%3f").to_string());
-    context.insert("cwd", &env::current_dir()?.to_string_lossy());
+    context.insert("cwd", &env::current_dir()?.to_slash_lossy());
 
     insert_file_context(&cmd_file, "cmd", &mut context)?;
 
