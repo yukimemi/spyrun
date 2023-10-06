@@ -1,15 +1,19 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 21:48:21.
+// Last Change : 2023/10/03 23:58:48.
 // =============================================================================
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    env,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use log_derive::logfn;
 use path_slash::{PathBufExt as _, PathExt as _};
-use tera::Context;
+use tera::{Context, Tera, Value};
 use tracing::debug;
 
 #[logfn(Debug)]
@@ -45,4 +49,18 @@ pub fn insert_file_context<P: AsRef<Path>>(
         &p.extension().unwrap_or_default().to_string_lossy(),
     );
     Ok(())
+}
+
+#[logfn(Debug)]
+pub fn new_tera(name: &str, content: &str) -> Result<Tera> {
+    let mut tera = Tera::default();
+    tera.add_raw_template(name, content)?;
+    tera.register_function("env", |args: &HashMap<String, Value>| {
+        let name = match args.get("name") {
+            Some(val) => val.as_str().unwrap(),
+            None => return Err("name is required".into()),
+        };
+        Ok(Value::String(env::var(name).unwrap_or_default()))
+    });
+    Ok(tera)
 }

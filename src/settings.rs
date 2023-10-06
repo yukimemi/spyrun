@@ -1,17 +1,17 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/02 08:45:09.
+// Last Change : 2023/10/04 00:08:51.
 // =============================================================================
 
-use std::{collections::HashMap, env, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use log_derive::logfn;
 use serde::{Deserialize, Deserializer};
-use tera::{Context, Tera, Value};
+use tera::Context;
 
-use super::util::insert_file_context;
+use super::util::{insert_file_context, new_tera};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Vars {
@@ -22,6 +22,11 @@ pub struct Vars {
 pub struct Log {
     pub path: String,
     pub level: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Cfg {
+    pub stop: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -44,20 +49,8 @@ pub struct Spy {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub log: Log,
+    pub cfg: Cfg,
     pub spys: Vec<Spy>,
-}
-
-fn new_tera(name: &str, content: &str) -> Result<Tera> {
-    let mut tera = Tera::default();
-    tera.add_raw_template(name, content)?;
-    tera.register_function("env", |args: &HashMap<String, Value>| {
-        let name = match args.get("name") {
-            Some(val) => val.as_str().unwrap(),
-            None => return Err("name is required".into()),
-        };
-        Ok(Value::String(env::var(name).unwrap_or_default()))
-    });
-    Ok(tera)
 }
 
 impl Settings {
@@ -70,6 +63,11 @@ impl Settings {
         context.insert("input", "{{ input }}");
         context.insert("output", "{{ output }}");
         context.insert("event_path", "{{ event_path }}");
+        context.insert("event_dir", "{{ event_dir }}");
+        context.insert("event_dirname", "{{ event_dirname }}");
+        context.insert("event_name", "{{ event_name }}");
+        context.insert("event_stem", "{{ event_stem }}");
+        context.insert("event_ext", "{{ event_ext }}");
 
         let toml_value: toml::Value = toml::from_str(&toml_str)?;
         if let Some(vars) = toml_value.get("vars") {
@@ -121,6 +119,7 @@ impl Settings {
 
         Settings {
             log: self.log.clone(),
+            cfg: self.cfg.clone(),
             spys,
         }
     }
@@ -139,7 +138,7 @@ impl Default for Spy {
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
                     cmd: "powershell".to_string(),
-                    arg: ["-NoProfile", "-File", "{{input}}"]
+                    arg: ["-NoProfile", "-File", "{{event_path}}"]
                         .iter()
                         .map(|s| s.to_string())
                         .collect(),
@@ -147,17 +146,26 @@ impl Default for Spy {
                 Pattern {
                     pattern: "\\.cmd$".to_string(),
                     cmd: "cmd".to_string(),
-                    arg: ["/c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
+                    arg: ["/c", "{{event_path}}"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                 },
                 Pattern {
                     pattern: "\\.bat$".to_string(),
                     cmd: "cmd".to_string(),
-                    arg: ["/c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
+                    arg: ["/c", "{{event_path}}"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                 },
                 Pattern {
                     pattern: "\\.sh$".to_string(),
                     cmd: "bash".to_string(),
-                    arg: ["-c", "{{input}}"].iter().map(|s| s.to_string()).collect(),
+                    arg: ["-c", "{{event_path}}"]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                 },
             ]),
         }

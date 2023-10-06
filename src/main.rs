@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 21:56:18.
+// Last Change : 2023/10/04 00:32:19.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -11,7 +11,6 @@ mod settings;
 mod util;
 
 use std::{
-    collections::HashMap,
     env,
     fs::{create_dir_all, OpenOptions},
     path::{Path, PathBuf},
@@ -27,16 +26,16 @@ use clap::Parser;
 use crypto_hash::{hex_digest, Algorithm};
 use go_defer::defer;
 use log_derive::logfn;
-use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
 use path_slash::PathBufExt as _;
 use rayon::prelude::*;
 use regex::Regex;
 use settings::{Pattern, Settings, Spy};
 use single_instance::SingleInstance;
-use tera::{Context, Tera, Value};
+use tera::Context;
 use tracing::{debug, error, info, warn};
-use util::insert_file_context;
+use util::{insert_file_context, new_tera};
 
 enum Message {
     Event(notify::Event),
@@ -123,8 +122,22 @@ fn execute_command(
     context: Context,
 ) -> Result<ExitStatus> {
     let mut context = context.clone();
-    create_dir_all(output)?;
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
+    insert_file_context(event_path, "event", &mut context).unwrap();
+    let arg = &arg
+        .iter()
+        .map(|s| {
+            let tera = new_tera("arg", s).unwrap();
+            tera.render("arg", &context).unwrap()
+        })
+        .collect::<Vec<_>>();
+    let tera = new_tera("input", input)?;
+    let input = tera.render("input", &context)?;
+    context.insert("input", &input);
+    let tera = new_tera("output", output)?;
+    let output = tera.render("output", &context)?;
+    context.insert("output", &output);
+    create_dir_all(&output)?;
     let stdout_path = PathBuf::from(&output).join(format!("{}_stdout_{}.log", &name, now));
     let stdout_file = OpenOptions::new()
         .write(true)
@@ -137,25 +150,6 @@ fn execute_command(
         .append(true)
         .create(true)
         .open(&stderr_path)?;
-    let arg = &arg
-        .iter()
-        .map(|s| {
-            let mut tera = Tera::default();
-            let event_path = event_path.to_string_lossy();
-            tera.add_raw_template("arg", s).unwrap();
-            tera.register_function("env", |args: &HashMap<String, Value>| {
-                let name = match args.get("name") {
-                    Some(val) => val.as_str().unwrap(),
-                    None => return Err("name is required".into()),
-                };
-                Ok(Value::String(env::var(name).unwrap_or_default()))
-            });
-            context.insert("input", &input);
-            context.insert("output", &output);
-            context.insert("event_path", &event_path);
-            tera.render("arg", &context).unwrap()
-        })
-        .collect::<Vec<_>>();
     info!(
         "Execute cmd: {}, arg: {}, stdout: {}, stderr: {}",
         cmd,
@@ -285,7 +279,7 @@ fn main() -> Result<()> {
         bail!(warn_msg);
     }
 
-    debug!("start !");
+    info!("==================== start ! ====================");
 
     let results = settings
         .spys
@@ -297,8 +291,31 @@ fn main() -> Result<()> {
         })
         .collect::<Vec<_>>();
 
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
+    let (tx_stop, rx_stop) = mpsc::channel();
+    let stop_flg = settings.cfg.stop.clone();
+    let mut stop_watcher =
+        notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
+            Ok(event) => {
+                let event_str = event_kind_to_string(event.kind);
+                if vec!["Create", "Modify"].into_iter().any(|e| e == event_str)
+                    && event.paths.last().unwrap() == Path::new(&stop_flg)
+                {
+                    tx_stop.send("stop").unwrap();
+                }
+            }
+            Err(e) => error!("stop watch error: {:?}", e),
+        })?;
+    stop_watcher.watch(
+        Path::new(&settings.cfg.stop).parent().unwrap(),
+        RecursiveMode::NonRecursive,
+    )?;
+    loop {
+        match rx_stop.recv() {
+            Ok("stop") => break,
+            Err(e) => error!("stop watch error: {:?}", e),
+            _ => unreachable!(),
+        }
+    }
 
     results.into_par_iter().for_each(|result| {
         if let Some((handle, tx, _)) = result {
@@ -313,6 +330,8 @@ fn main() -> Result<()> {
             }
         }
     });
+
+    info!("==================== end ! ====================");
 
     Ok(())
 }

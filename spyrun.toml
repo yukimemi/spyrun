@@ -1,3 +1,6 @@
+[cfg]
+stop = "./stop_spyrun.flg"
+
 [vars]
 base_path = "/tmp/spyrun"
 version = "0.1.0"
