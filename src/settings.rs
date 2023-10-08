@@ -1,17 +1,50 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/04 00:08:51.
+// Last Change : 2023/10/08 23:44:30.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Result;
 use log_derive::logfn;
+use notify::RecursiveMode;
 use serde::{Deserialize, Deserializer};
 use tera::Context;
 
-use super::util::{insert_file_context, new_tera};
+use crate::util::{insert_file_context, new_tera};
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Poll {
+    pub interval: u64,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Walk {
+    pub pattern: Option<String>,
+    pub min_depth: Option<usize>,
+    pub max_depth: Option<usize>,
+    pub follow_symlinks: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Spy {
+    pub name: String,
+    #[serde(default, deserialize_with = "is_valid_event_kind")]
+    pub events: Option<Vec<String>>,
+    pub input: Option<String>,
+    pub output: Option<String>,
+    #[serde(
+        default = "default_recursive",
+        deserialize_with = "deserialize_recursive_mode"
+    )]
+    pub recursive: RecursiveMode,
+    pub debounce: Option<u64>,
+    pub patterns: Option<Vec<Pattern>>,
+    pub delay: Option<(u64, Option<u64>)>,
+    pub poll: Option<Poll>,
+    pub walk: Option<Walk>,
+}
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Vars {
@@ -34,16 +67,6 @@ pub struct Pattern {
     pub pattern: String,
     pub cmd: String,
     pub arg: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct Spy {
-    pub name: String,
-    #[serde(default, deserialize_with = "is_valid_event_kind")]
-    pub events: Option<Vec<String>>,
-    pub input: Option<String>,
-    pub output: Option<String>,
-    pub patterns: Option<Vec<Pattern>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -108,10 +131,12 @@ impl Settings {
                         events: spy.events.clone().or(default_spy.events.clone()),
                         input: spy.input.clone().or(default_spy.input.clone()),
                         output: spy.output.clone().or(default_spy.output.clone()),
-                        patterns: spy
-                            .patterns
-                            .clone()
-                            .or_else(|| default_spy.patterns.clone()),
+                        recursive: spy.recursive,
+                        debounce: spy.debounce.or(default_spy.debounce),
+                        patterns: spy.patterns.clone().or(default_spy.patterns.clone()),
+                        delay: spy.delay.or(default_spy.delay),
+                        poll: spy.poll.clone().or(default_spy.poll.clone()),
+                        walk: spy.walk.clone().or(default_spy.walk.clone()),
                     }
                 }
             })
@@ -134,6 +159,8 @@ impl Default for Spy {
             events: Some(vec!["Create".to_string(), "Modify".to_string()]),
             input: Some("input".to_string()),
             output: Some("output".to_string()),
+            recursive: RecursiveMode::Recursive,
+            debounce: Some(500),
             patterns: Some(vec![
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
@@ -168,6 +195,9 @@ impl Default for Spy {
                         .collect(),
                 },
             ]),
+            delay: None,
+            poll: None,
+            walk: None,
         }
     }
 }
@@ -193,4 +223,19 @@ fn is_valid_event_kind<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<Str
     } else {
         Ok(None)
     }
+}
+
+#[logfn(Debug)]
+fn deserialize_recursive_mode<'de, D: Deserializer<'de>>(d: D) -> Result<RecursiveMode, D::Error> {
+    let recurse = bool::deserialize(d)?;
+    if recurse {
+        Ok(RecursiveMode::Recursive)
+    } else {
+        Ok(RecursiveMode::NonRecursive)
+    }
+}
+
+#[logfn(Debug)]
+fn default_recursive() -> RecursiveMode {
+    RecursiveMode::NonRecursive
 }

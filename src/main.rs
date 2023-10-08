@@ -1,13 +1,15 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/04 00:32:19.
+// Last Change : 2023/10/08 22:17:11.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
 
 mod logger;
+mod message;
 mod settings;
+mod spy;
 mod util;
 
 use std::{
@@ -17,7 +19,6 @@ use std::{
     process::{Command, ExitStatus},
     sync::mpsc,
     thread,
-    time::Duration,
 };
 
 use anyhow::{bail, Result};
@@ -26,8 +27,8 @@ use clap::Parser;
 use crypto_hash::{hex_digest, Algorithm};
 use go_defer::defer;
 use log_derive::logfn;
-use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use notify_debouncer_full::{new_debouncer, DebounceEventResult, Debouncer, FileIdMap};
+use message::Message;
+use notify::{Event, EventKind, RecursiveMode, Watcher};
 use path_slash::PathBufExt as _;
 use rayon::prelude::*;
 use regex::Regex;
@@ -36,11 +37,6 @@ use single_instance::SingleInstance;
 use tera::Context;
 use tracing::{debug, error, info, warn};
 use util::{insert_file_context, new_tera};
-
-enum Message {
-    Event(notify::Event),
-    Stop,
-}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -170,35 +166,14 @@ fn execute_command(
 fn watcher(
     spy: Spy,
     context: Context,
-) -> Result<(
-    std::thread::JoinHandle<()>,
-    mpsc::Sender<Message>,
-    Debouncer<RecommendedWatcher, FileIdMap>,
-)> {
+) -> Result<(std::thread::JoinHandle<()>, mpsc::Sender<Message>)> {
     let (tx, rx) = mpsc::channel();
+    let (tx_execute, rx_execute) = mpsc::channel();
     let tx_clone = tx.clone();
-    let mut debouncer = new_debouncer(
-        Duration::from_secs(1),
-        None,
-        move |res: DebounceEventResult| match res {
-            Ok(events) => events.into_iter().for_each(|event| {
-                tx_clone.send(Message::Event(event.event)).unwrap();
-            }),
-            Err(e) => {
-                error!("watch error: {:?}", e);
-            }
-        },
-    )?;
-    let input = spy.clone().input.expect("spy.input is None");
-    info!("watching {}", &input);
-    debouncer
-        .watcher()
-        .watch(Path::new(&input), RecursiveMode::Recursive)?;
-
-    let (tx2, rx2) = mpsc::channel();
     let handle = thread::spawn(move || {
-        let handle2 = thread::spawn(|| {
-            rx2.into_iter().for_each(|status| {
+        let _watcher = spy.watch(tx_clone);
+        let handle_execute_wait = thread::spawn(|| {
+            rx_execute.into_iter().for_each(|status| {
                 debug!("rx2 received: {:?}", status);
                 match status {
                     Ok(s) => info!("Command success status: {:?}", s),
@@ -211,7 +186,7 @@ fn watcher(
                 match msg {
                     Message::Event(event) => {
                         if let Some(pattern) = find_pattern(&event, &spy) {
-                            let tx2 = tx2.clone();
+                            let tx_exec_clone = tx_execute.clone();
                             let spy = spy.clone();
                             let event = event.clone();
                             let context = context.clone();
@@ -226,7 +201,7 @@ fn watcher(
                                     pattern.arg,
                                     context,
                                 );
-                                tx2.send(status).unwrap();
+                                tx_exec_clone.send(status).unwrap();
                             });
                         }
                     }
@@ -238,11 +213,11 @@ fn watcher(
             }
             info!("channel closed");
         });
-        drop(tx2);
-        handle2.join().unwrap();
+        drop(tx_execute);
+        handle_execute_wait.join().unwrap();
     });
 
-    Ok((handle, tx, debouncer))
+    Ok((handle, tx))
 }
 
 #[tracing::instrument]
@@ -292,7 +267,11 @@ fn main() -> Result<()> {
         .collect::<Vec<_>>();
 
     let (tx_stop, rx_stop) = mpsc::channel();
-    let stop_flg = settings.cfg.stop.clone();
+    let stop_flg = if Path::new(&settings.cfg.stop).is_relative() {
+        Path::join(env::current_dir()?.as_path(), &settings.cfg.stop)
+    } else {
+        Path::new(&settings.cfg.stop).to_path_buf()
+    };
     let mut stop_watcher =
         notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
             Ok(event) => {
@@ -309,6 +288,7 @@ fn main() -> Result<()> {
         Path::new(&settings.cfg.stop).parent().unwrap(),
         RecursiveMode::NonRecursive,
     )?;
+    info!("watching stop flg {}", &settings.cfg.stop);
     loop {
         match rx_stop.recv() {
             Ok("stop") => break,
@@ -318,7 +298,7 @@ fn main() -> Result<()> {
     }
 
     results.into_par_iter().for_each(|result| {
-        if let Some((handle, tx, _)) = result {
+        if let Some((handle, tx)) = result {
             tx.send(Message::Stop).unwrap();
             match handle.join() {
                 Ok(_) => {

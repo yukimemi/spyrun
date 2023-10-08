@@ -17,6 +17,7 @@ target/
 *.pdb
 
 *.log
+*.flg
 .vim/
 in/
 in2/
@@ -25,3 +26,4 @@ logs/
 out/
 out2/
 output/
+test/

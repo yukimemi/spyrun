@@ -30,13 +30,19 @@ command = "cargo"
 args = ["install", "--force", "--path", "."]
 dependencies = ["test"]
 
+[tasks.check]
+command = "cargo"
+args = ["check"]
+dependencies = ["format"]
+
 [tasks.lint]
 command = "cargo"
 args = ["clippy"]
+dependencies = ["format", "check"]
 
 [tasks.test]
 command = "cargo"
-args = ["test", "--", "--nocapture"]
+args = ["test", "--", "--show-output"]
 dependencies = ["format", "lint"]
 
 [tasks.debug]
@@ -44,8 +50,8 @@ script = ["SPYRUN_LOG_FILE=debug SPYRUN_LOG_STDOUT=debug cargo run -- ${@}"]
 
 [tasks.watch]
 env = { "RUST_LOG" = "spyrun=debug" }
-watch = { postpone = true, ignore_pattern = "dst/*" }
-dependencies = ["build", "test", "install"]
+watch = { postpone = true }
+dependencies = ["test"]
 
 [tasks.default]
 dependencies = ["format", "build", "test"]
