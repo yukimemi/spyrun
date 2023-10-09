@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 19:56:17.
+// Last Change : 2023/10/09 20:32:23.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
@@ -92,6 +92,12 @@ impl Settings {
         context.insert("event_name", "{{ event_name }}");
         context.insert("event_stem", "{{ event_stem }}");
         context.insert("event_ext", "{{ event_ext }}");
+        context.insert("stop_path", "{{ stop_path }}");
+        context.insert("stop_dir", "{{ stop_dir }}");
+        context.insert("stop_dirname", "{{ stop_dirname }}");
+        context.insert("stop_name", "{{ stop_name }}");
+        context.insert("stop_stem", "{{ stop_stem }}");
+        context.insert("stop_ext", "{{ stop_ext }}");
 
         let toml_value: toml::Value = toml::from_str(&toml_str)?;
         if let Some(vars) = toml_value.get("vars") {
