@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/08 22:17:11.
+// Last Change : 2023/10/09 18:10:09.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -171,6 +171,10 @@ fn watcher(
     let (tx_execute, rx_execute) = mpsc::channel();
     let tx_clone = tx.clone();
     let handle = thread::spawn(move || {
+        if let Some(ref _walk) = spy.walk {
+            let handle = spy.walk(tx_clone.clone()).unwrap();
+            handle.join().unwrap();
+        }
         let _watcher = spy.watch(tx_clone);
         let handle_execute_wait = thread::spawn(|| {
             rx_execute.into_iter().for_each(|status| {

@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 10:20:36.
+// Last Change : 2023/10/09 17:52:02.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
@@ -21,10 +21,11 @@ pub struct Poll {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Walk {
-    pub pattern: Option<String>,
     pub min_depth: Option<usize>,
     pub max_depth: Option<usize>,
     pub follow_symlinks: Option<bool>,
+    pub pattern: Option<String>,
+    pub delay: Option<(u64, Option<u64>)>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
