@@ -1318,6 +1318,7 @@ dependencies = [
  "notify",
  "notify-debouncer-full",
  "path-slash",
+ "rand",
  "rayon",
  "regex",
  "serde",

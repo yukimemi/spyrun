@@ -17,6 +17,7 @@ log-derive = "0.4.1"
 notify = "6.0.1"
 notify-debouncer-full = "0.3.1"
 path-slash = "0.2.1"
+rand = "0.8.5"
 rayon = "1.8.0"
 regex = "1.9.1"
 serde = { version = "1.0.178", features = ["derive"] }
