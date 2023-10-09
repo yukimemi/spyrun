@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 17:52:02.
+// Last Change : 2023/10/09 19:56:17.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
@@ -60,7 +60,7 @@ pub struct Log {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Cfg {
-    pub stop: String,
+    pub stop_flg: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]

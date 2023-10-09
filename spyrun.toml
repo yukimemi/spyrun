@@ -1,5 +1,5 @@
 [cfg]
-stop = "./stop_spyrun.flg"
+stop_flg = "./stop_spyrun.flg"
 
 [vars]
 base_path = "/tmp/spyrun"

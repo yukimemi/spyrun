@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 18:10:09.
+// Last Change : 2023/10/09 19:59:10.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -260,6 +260,14 @@ fn main() -> Result<()> {
 
     info!("==================== start ! ====================");
 
+    let (tx_stop, rx_stop) = mpsc::channel();
+    let stop_flg = if Path::new(&settings.cfg.stop_flg).is_relative() {
+        Path::join(env::current_dir()?.as_path(), &settings.cfg.stop_flg)
+    } else {
+        Path::new(&settings.cfg.stop_flg).to_path_buf()
+    };
+    insert_file_context(&stop_flg, "stop", &mut context)?;
+
     let results = settings
         .spys
         .iter()
@@ -270,12 +278,6 @@ fn main() -> Result<()> {
         })
         .collect::<Vec<_>>();
 
-    let (tx_stop, rx_stop) = mpsc::channel();
-    let stop_flg = if Path::new(&settings.cfg.stop).is_relative() {
-        Path::join(env::current_dir()?.as_path(), &settings.cfg.stop)
-    } else {
-        Path::new(&settings.cfg.stop).to_path_buf()
-    };
     let mut stop_watcher =
         notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
             Ok(event) => {
@@ -289,10 +291,10 @@ fn main() -> Result<()> {
             Err(e) => error!("stop watch error: {:?}", e),
         })?;
     stop_watcher.watch(
-        Path::new(&settings.cfg.stop).parent().unwrap(),
+        Path::new(&settings.cfg.stop_flg).parent().unwrap(),
         RecursiveMode::NonRecursive,
     )?;
-    info!("watching stop flg {}", &settings.cfg.stop);
+    info!("watching stop flg {}", &settings.cfg.stop_flg);
     loop {
         match rx_stop.recv() {
             Ok("stop") => break,
