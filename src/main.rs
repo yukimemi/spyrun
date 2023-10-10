@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 21:16:28.
+// Last Change : 2023/10/10 21:32:11.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -277,9 +277,9 @@ fn main() -> Result<()> {
             context.clone(),
         );
         match status {
-            Ok(s) => info!("Command success status: {:?}", s),
+            Ok(s) => info!("Init command success status: {:?}", s),
             Err(e) => {
-                error!("Command error status: {:?}", e);
+                error!("Init command error status: {:?}", e);
                 if init.error_stop {
                     bail!(e);
                 }
