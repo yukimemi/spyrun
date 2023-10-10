@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 21:32:11.
+// Last Change : 2023/10/10 21:52:59.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -271,7 +271,7 @@ fn main() -> Result<()> {
             &(env::current_exe()?),
             "init",
             "input",
-            "output",
+            context.get("log_dir").unwrap().as_str().unwrap(),
             &init.cmd,
             init.arg.clone(),
             context.clone(),
