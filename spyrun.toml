@@ -1,6 +1,12 @@
 [cfg]
 stop_flg = "./stop_spyrun.flg"
 
+[init]
+name = "Initial execute"
+cmd = "bash"
+arg = ["-c", "echo", "spyrun init"]
+
+
 [vars]
 base_path = "/tmp/spyrun"
 version = "0.1.0"

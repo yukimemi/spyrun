@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 16:47:53.
+// Last Change : 2023/10/10 19:17:56.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -235,7 +235,9 @@ fn main() -> Result<()> {
     debug!("{:?}", &settings);
 
     let (guard1, guard2) = logger::init(settings.clone(), &mut context)?;
+    info!("==================== start ! ====================");
     defer!({
+        info!("==================== end ! ====================");
         drop(guard1);
         drop(guard2);
     });
@@ -256,8 +258,6 @@ fn main() -> Result<()> {
         bail!(warn_msg);
     }
 
-    info!("==================== start ! ====================");
-
     let (tx_stop, rx_stop) = mpsc::channel();
     let stop_flg = if Path::new(&settings.cfg.stop_flg).is_relative() {
         Path::join(env::current_dir()?.as_path(), &settings.cfg.stop_flg)
@@ -265,6 +265,54 @@ fn main() -> Result<()> {
         Path::new(&settings.cfg.stop_flg).to_path_buf()
     };
     insert_file_context(&stop_flg, "stop", &mut context)?;
+
+    if let Some(init) = &settings.init {
+        let (tx, rx) = mpsc::channel();
+        let (tx_execute, rx_execute) = mpsc::channel();
+        let handle_walk = init.walk(tx.clone()).unwrap();
+        let handle_execute_wait = thread::spawn(|| {
+            rx_execute.into_iter().for_each(|status| {
+                debug!("rx_execute received: {:?}", status);
+                match status {
+                    Ok(s) => info!("Command success status: {:?}", s),
+                    Err(e) => error!("Command error status: {:?}", e),
+                }
+            });
+        });
+        handle_walk.join().unwrap();
+        drop(tx);
+        for msg in rx {
+            match msg {
+                Message::Event(event) => {
+                    if let Some(pattern) = find_pattern(&event, init) {
+                        let tx_exec_clone = tx_execute.clone();
+                        let init = init.clone();
+                        let event = event.clone();
+                        let context = context.clone();
+                        info!("pattern: {:?}", pattern);
+                        rayon::spawn(move || {
+                            let status = execute_command(
+                                event.paths.last().unwrap(),
+                                &init.name,
+                                &init.input.unwrap(),
+                                &init.output.unwrap(),
+                                &pattern.cmd,
+                                pattern.arg,
+                                context,
+                            );
+                            tx_exec_clone.send(status).unwrap();
+                        });
+                    }
+                }
+                Message::Stop => {
+                    info!("watch stop !");
+                    break;
+                }
+            }
+        }
+        drop(tx_execute);
+        handle_execute_wait.join().unwrap();
+    }
 
     let results = settings
         .spys
@@ -314,8 +362,6 @@ fn main() -> Result<()> {
             }
         }
     });
-
-    info!("==================== end ! ====================");
 
     Ok(())
 }

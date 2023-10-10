@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 20:32:23.
+// Last Change : 2023/10/10 19:03:04.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
@@ -61,6 +61,8 @@ pub struct Log {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Cfg {
     pub stop_flg: String,
+    #[serde(default = "default_init_timeout")]
+    pub init_timeout: u64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -74,6 +76,7 @@ pub struct Pattern {
 pub struct Settings {
     pub log: Log,
     pub cfg: Cfg,
+    pub init: Option<Spy>,
     pub spys: Vec<Spy>,
 }
 
@@ -152,6 +155,7 @@ impl Settings {
         Settings {
             log: self.log.clone(),
             cfg: self.cfg.clone(),
+            init: self.init.clone(),
             spys,
         }
     }
@@ -245,4 +249,9 @@ fn deserialize_recursive_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Recursi
 #[logfn(Debug)]
 fn default_recursive() -> RecursiveMode {
     RecursiveMode::NonRecursive
+}
+
+#[logfn(Debug)]
+fn default_init_timeout() -> u64 {
+    60000
 }
