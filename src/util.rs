@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/03 23:58:48.
+// Last Change : 2023/10/10 17:25:44.
 // =============================================================================
 
 use std::{
@@ -51,7 +51,7 @@ pub fn insert_file_context<P: AsRef<Path>>(
     Ok(())
 }
 
-#[logfn(Debug)]
+#[logfn(Trace)]
 pub fn new_tera(name: &str, content: &str) -> Result<Tera> {
     let mut tera = Tera::default();
     tera.add_raw_template(name, content)?;

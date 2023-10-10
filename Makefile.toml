@@ -59,3 +59,7 @@ dependencies = ["format", "build", "test"]
 [tasks.docker]
 command = "docker"
 args = ["run", "--rm", "-it", "-w", "${PWD}", "-v", "${PWD}:${PWD}", "rust"]
+
+[tasks.selfupdate]
+command = "cargo"
+args = ["install", "--force", "cargo-make"]

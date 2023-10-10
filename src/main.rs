@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 19:59:10.
+// Last Change : 2023/10/10 16:47:53.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -178,45 +178,43 @@ fn watcher(
         let _watcher = spy.watch(tx_clone);
         let handle_execute_wait = thread::spawn(|| {
             rx_execute.into_iter().for_each(|status| {
-                debug!("rx2 received: {:?}", status);
+                debug!("rx_execute received: {:?}", status);
                 match status {
                     Ok(s) => info!("Command success status: {:?}", s),
                     Err(e) => error!("Command error status: {:?}", e),
                 }
             });
         });
-        rayon::scope(|s| {
-            for msg in rx {
-                match msg {
-                    Message::Event(event) => {
-                        if let Some(pattern) = find_pattern(&event, &spy) {
-                            let tx_exec_clone = tx_execute.clone();
-                            let spy = spy.clone();
-                            let event = event.clone();
-                            let context = context.clone();
-                            info!("pattern: {:?}", pattern);
-                            s.spawn(move |_| {
-                                let status = execute_command(
-                                    event.paths.last().unwrap(),
-                                    &spy.name,
-                                    &spy.input.unwrap(),
-                                    &spy.output.unwrap(),
-                                    &pattern.cmd,
-                                    pattern.arg,
-                                    context,
-                                );
-                                tx_exec_clone.send(status).unwrap();
-                            });
-                        }
-                    }
-                    Message::Stop => {
-                        info!("watch stop !");
-                        break;
+        for msg in rx {
+            match msg {
+                Message::Event(event) => {
+                    if let Some(pattern) = find_pattern(&event, &spy) {
+                        let tx_exec_clone = tx_execute.clone();
+                        let spy = spy.clone();
+                        let event = event.clone();
+                        let context = context.clone();
+                        info!("pattern: {:?}", pattern);
+                        rayon::spawn(move || {
+                            let status = execute_command(
+                                event.paths.last().unwrap(),
+                                &spy.name,
+                                &spy.input.unwrap(),
+                                &spy.output.unwrap(),
+                                &pattern.cmd,
+                                pattern.arg,
+                                context,
+                            );
+                            tx_exec_clone.send(status).unwrap();
+                        });
                     }
                 }
+                Message::Stop => {
+                    info!("watch stop !");
+                    break;
+                }
             }
-            info!("channel closed");
-        });
+        }
+        info!("channel closed");
         drop(tx_execute);
         handle_execute_wait.join().unwrap();
     });

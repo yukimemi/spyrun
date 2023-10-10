@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/10/01 17:58:05.
+// Last Change : 2023/10/10 17:00:11.
 // =============================================================================
 
 use std::{env, fs::create_dir_all};
@@ -48,7 +48,8 @@ pub fn init(
     let file_layer = Layer::default()
         .with_writer(file_writer)
         .with_timer(timer.clone())
-        .json()
+        // .json()
+        .with_ansi(false)
         .with_filter(EnvFilter::new(
             env::var("SPYRUN_LOG_FILE").unwrap_or_else(|_| "debug".to_string()),
         ))
