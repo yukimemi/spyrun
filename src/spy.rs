@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2023/10/09 18:03:50.
+// Last Change : 2023/10/11 02:51:46.
 // =============================================================================
 
 use std::{
@@ -19,7 +19,7 @@ use notify::{
 };
 use rand::Rng;
 use regex::Regex;
-use tracing::error;
+use tracing::{debug, error};
 use walkdir::WalkDir;
 
 use crate::{message::Message, settings::Spy};
@@ -96,7 +96,7 @@ impl Spy {
             return Ok(thread::spawn(|| {}));
         }
         let walk = spy.walk.unwrap();
-        let mut walker = WalkDir::new(spy.input.unwrap());
+        let mut walker = WalkDir::new(spy.input.clone().unwrap());
 
         if let Some(min_path) = walk.min_depth {
             walker = walker.min_depth(min_path);
@@ -110,19 +110,16 @@ impl Spy {
 
         let walker = walker.into_iter();
 
+        debug!("[{}] walk input: [{}]", &spy.name, &spy.input.unwrap());
         let handle = thread::spawn(move || {
             match walk.pattern {
                 Some(pattern) => {
+                    debug!("[{}] walk pattern: [{}]", &spy.name, &pattern);
                     let re = Regex::new(&pattern).unwrap();
+                    debug!("[{}] re: [{:?}]", &spy.name, &re);
                     walker
-                        .filter_entry(move |entry| {
-                            entry
-                                .path()
-                                .to_str()
-                                .map(|s| re.is_match(s))
-                                .unwrap_or(false)
-                        })
                         .filter_map(|e| e.ok())
+                        .filter(|e| e.path().to_str().map_or(false, |s| re.is_match(s)))
                         .for_each(|e| {
                             tx.send(Message::Event(Event {
                                 kind: EventKind::Modify(ModifyKind::Any),

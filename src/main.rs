@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 21:52:59.
+// Last Change : 2023/10/10 22:28:59.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -166,22 +166,23 @@ fn execute_command(
 fn watcher(
     spy: Spy,
     context: Context,
-) -> Result<(std::thread::JoinHandle<()>, mpsc::Sender<Message>)> {
+) -> Result<(std::thread::JoinHandle<String>, mpsc::Sender<Message>)> {
     let (tx, rx) = mpsc::channel();
     let (tx_execute, rx_execute) = mpsc::channel();
     let tx_clone = tx.clone();
-    let handle = thread::spawn(move || {
+    let handle = thread::spawn(move || -> String {
         if let Some(ref _walk) = spy.walk {
             let handle = spy.walk(tx_clone.clone()).unwrap();
             handle.join().unwrap();
         }
         let _watcher = spy.watch(tx_clone);
-        let handle_execute_wait = thread::spawn(|| {
+        let spy_clone = spy.clone();
+        let handle_execute_wait = thread::spawn(move || {
             rx_execute.into_iter().for_each(|status| {
-                debug!("rx_execute received: {:?}", status);
+                debug!("[{}] rx_execute received: {:?}", &spy_clone.name, status);
                 match status {
-                    Ok(s) => info!("Command success status: {:?}", s),
-                    Err(e) => error!("Command error status: {:?}", e),
+                    Ok(s) => info!("[{}] Command success status: {:?}", &spy_clone.name, s),
+                    Err(e) => error!("[{}] Command error status: {:?}", &spy_clone.name, e),
                 }
             });
         });
@@ -193,7 +194,7 @@ fn watcher(
                         let spy = spy.clone();
                         let event = event.clone();
                         let context = context.clone();
-                        info!("pattern: {:?}", pattern);
+                        info!("[{}] pattern: {:?}", &spy.name, pattern);
                         rayon::spawn(move || {
                             let status = execute_command(
                                 event.paths.last().unwrap(),
@@ -209,14 +210,15 @@ fn watcher(
                     }
                 }
                 Message::Stop => {
-                    info!("watch stop !");
+                    info!("[{}] watch stop !", &spy.name);
                     break;
                 }
             }
         }
-        info!("channel closed");
+        info!("[{}] channel closed", &spy.name);
         drop(tx_execute);
         handle_execute_wait.join().unwrap();
+        spy.name
     });
 
     Ok((handle, tx))
@@ -326,8 +328,8 @@ fn main() -> Result<()> {
         if let Some((handle, tx)) = result {
             tx.send(Message::Stop).unwrap();
             match handle.join() {
-                Ok(_) => {
-                    info!("watch thread joined");
+                Ok(name) => {
+                    info!("[{}] watch thread joined", name);
                 }
                 Err(e) => {
                     error!("watch thread error: {:?}", e);
