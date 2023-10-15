@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 22:28:59.
+// Last Change : 2023/10/13 21:21:17.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -120,6 +120,9 @@ fn execute_command(
     let mut context = context.clone();
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
     insert_file_context(event_path, "event", &mut context).unwrap();
+    let tera = new_tera("cmd", cmd)?;
+    let cmd = tera.render("cmd", &context)?;
+    context.insert("cmd", &cmd);
     let arg = &arg
         .iter()
         .map(|s| {
@@ -127,6 +130,7 @@ fn execute_command(
             tera.render("arg", &context).unwrap()
         })
         .collect::<Vec<_>>();
+    context.insert("arg", &arg.join(" "));
     let tera = new_tera("input", input)?;
     let input = tera.render("input", &context)?;
     context.insert("input", &input);
@@ -267,6 +271,23 @@ fn main() -> Result<()> {
         Path::new(&settings.cfg.stop_flg).to_path_buf()
     };
     insert_file_context(&stop_flg, "stop", &mut context)?;
+    let mut stop_watcher =
+        notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
+            Ok(event) => {
+                let event_str = event_kind_to_string(event.kind);
+                if vec!["Create", "Modify"].into_iter().any(|e| e == event_str)
+                    && event.paths.last().unwrap() == Path::new(&stop_flg)
+                {
+                    tx_stop.send("stop").unwrap();
+                }
+            }
+            Err(e) => error!("stop watch error: {:?}", e),
+        })?;
+    stop_watcher.watch(
+        Path::new(&settings.cfg.stop_flg).parent().unwrap(),
+        RecursiveMode::NonRecursive,
+    )?;
+    info!("watching stop flg {}", &settings.cfg.stop_flg);
 
     if let Some(init) = &settings.init {
         let status = execute_command(
@@ -299,23 +320,7 @@ fn main() -> Result<()> {
         })
         .collect::<Vec<_>>();
 
-    let mut stop_watcher =
-        notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
-            Ok(event) => {
-                let event_str = event_kind_to_string(event.kind);
-                if vec!["Create", "Modify"].into_iter().any(|e| e == event_str)
-                    && event.paths.last().unwrap() == Path::new(&stop_flg)
-                {
-                    tx_stop.send("stop").unwrap();
-                }
-            }
-            Err(e) => error!("stop watch error: {:?}", e),
-        })?;
-    stop_watcher.watch(
-        Path::new(&settings.cfg.stop_flg).parent().unwrap(),
-        RecursiveMode::NonRecursive,
-    )?;
-    info!("watching stop flg {}", &settings.cfg.stop_flg);
+    // Wait stop...
     loop {
         match rx_stop.recv() {
             Ok("stop") => break,

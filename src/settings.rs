@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 21:15:38.
+// Last Change : 2023/10/13 21:45:11.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
@@ -189,19 +189,13 @@ impl Default for Spy {
                 },
                 Pattern {
                     pattern: "\\.cmd$".to_string(),
-                    cmd: "cmd".to_string(),
-                    arg: ["/c", "{{event_path}}"]
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
+                    cmd: "{{event_path}}".to_string(),
+                    arg: vec![],
                 },
                 Pattern {
                     pattern: "\\.bat$".to_string(),
-                    cmd: "cmd".to_string(),
-                    arg: ["/c", "{{event_path}}"]
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
+                    cmd: "{{event_path}}".to_string(),
+                    arg: vec![],
                 },
                 Pattern {
                     pattern: "\\.sh$".to_string(),

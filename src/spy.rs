@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2023/10/11 02:51:46.
+// Last Change : 2023/10/14 18:31:52.
 // =============================================================================
 
 use std::{
@@ -13,6 +13,7 @@ use std::{
 
 use anyhow::Result;
 use log_derive::logfn;
+use normalize_path::NormalizePath;
 use notify::{
     event::{EventAttributes, ModifyKind},
     recommended_watcher, Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
@@ -42,7 +43,10 @@ impl Spy {
             Ok(event) => tx.send(Message::Event(event)).unwrap(),
             Err(e) => error!("watch error: {:?}", e),
         })?;
-        watcher.watch(Path::new(&spy.input.unwrap()), spy.recursive)?;
+        watcher.watch(
+            Path::new(&spy.input.unwrap()).normalize().as_path(),
+            spy.recursive,
+        )?;
         Ok(watcher)
     }
 
@@ -57,7 +61,10 @@ impl Spy {
             },
             Config::default().with_poll_interval(Duration::from_millis(spy.poll.unwrap().interval)),
         )?;
-        watcher.watch(Path::new(&spy.input.unwrap()), spy.recursive)?;
+        watcher.watch(
+            Path::new(&spy.input.unwrap()).normalize().as_path(),
+            spy.recursive,
+        )?;
         Ok(watcher)
     }
 
@@ -96,7 +103,7 @@ impl Spy {
             return Ok(thread::spawn(|| {}));
         }
         let walk = spy.walk.unwrap();
-        let mut walker = WalkDir::new(spy.input.clone().unwrap());
+        let mut walker = WalkDir::new(Path::new(&spy.input.clone().unwrap()).normalize());
 
         if let Some(min_path) = walk.min_depth {
             walker = walker.min_depth(min_path);
