@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/13 21:45:11.
+// Last Change : 2023/10/16 19:57:33.
 // =============================================================================
 
 use std::{collections::HashMap, path::Path};
@@ -182,7 +182,7 @@ impl Default for Spy {
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
                     cmd: "powershell".to_string(),
-                    arg: ["-NoProfile", "-File", "{{event_path}}"]
+                    arg: ["-NoProfile", "-ExecutionPolicy", "ByPass", "-File", "{{event_path}}"]
                         .iter()
                         .map(|s| s.to_string())
                         .collect(),
