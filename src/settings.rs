@@ -1,18 +1,23 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/16 19:57:33.
+// Last Change : 2023/10/16 21:18:18.
 // =============================================================================
 
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log_derive::logfn;
 use notify::RecursiveMode;
 use serde::{Deserialize, Deserializer};
 use tera::Context;
+use tracing::{error, info};
 
-use crate::util::{insert_file_context, new_tera};
+use crate::util::{insert_default_context, insert_file_context, new_tera, render_vars};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Poll {
@@ -90,39 +95,37 @@ impl Settings {
     #[logfn(Debug)]
     pub fn new<P: AsRef<Path>>(cfg: P, context: &mut Context) -> Result<Self> {
         insert_file_context(&cfg, "cfg", context)?;
+        insert_default_context(context);
 
         let toml_str = std::fs::read_to_string(&cfg)?;
         let tera = new_tera(&cfg.as_ref().to_string_lossy(), &toml_str)?;
-        context.insert("input", "{{ input }}");
-        context.insert("output", "{{ output }}");
-        context.insert("event_path", "{{ event_path }}");
-        context.insert("event_dir", "{{ event_dir }}");
-        context.insert("event_dirname", "{{ event_dirname }}");
-        context.insert("event_name", "{{ event_name }}");
-        context.insert("event_stem", "{{ event_stem }}");
-        context.insert("event_ext", "{{ event_ext }}");
-        context.insert("stop_path", "{{ stop_path }}");
-        context.insert("stop_dir", "{{ stop_dir }}");
-        context.insert("stop_dirname", "{{ stop_dirname }}");
-        context.insert("stop_name", "{{ stop_name }}");
-        context.insert("stop_stem", "{{ stop_stem }}");
-        context.insert("stop_ext", "{{ stop_ext }}");
-
-        let toml_value: toml::Value = toml::from_str(&toml_str)?;
-        if let Some(vars) = toml_value.get("vars") {
-            vars.as_table().unwrap().iter().for_each(|(k, v)| {
-                let mut tera = new_tera("key", k).unwrap();
-                let k = tera.render_str(k, context).unwrap();
-                let v_str = v.as_str().unwrap();
-                let mut tera = new_tera("value", v_str).unwrap();
-                let v = tera.render_str(v_str, context).unwrap();
-                context.insert(k, &v);
-            })
-        }
-
+        render_vars(context, &toml_str)?;
         let toml_str = tera.render(&cfg.as_ref().to_string_lossy(), context)?;
-
-        Ok(toml::from_str(&toml_str)?)
+        match toml::from_str(&toml_str) {
+            Ok(s) => {
+                Settings::backup(&cfg)?;
+                Ok(s)
+            }
+            Err(e) => {
+                error!("Failed to parse settings.toml. {:?}", e);
+                info!("Load from backup file.");
+                let backup_cfg_path = Settings::backup_path(&cfg);
+                let backup_toml_str = std::fs::read_to_string(&backup_cfg_path)?;
+                let tera = new_tera(backup_cfg_path.to_str().unwrap(), &backup_toml_str)?;
+                render_vars(context, &backup_toml_str)?;
+                let backup_toml_str = tera.render(backup_cfg_path.to_str().unwrap(), context)?;
+                match toml::from_str(&backup_toml_str) {
+                    Ok(s) => {
+                        Settings::backup(&cfg)?;
+                        Ok(s)
+                    }
+                    Err(e) => {
+                        error!("Failed to parse backup settings.toml. {:?}", e);
+                        Err(anyhow!("Failed to parse backup settings.toml"))
+                    }
+                }
+            }
+        }
     }
 
     #[tracing::instrument]
@@ -165,6 +168,26 @@ impl Settings {
             spys,
         }
     }
+
+    #[logfn(Debug)]
+    pub fn backup_path<P: AsRef<Path>>(cfg: P) -> PathBuf {
+        let cfg_path = PathBuf::from(cfg.as_ref());
+        let new_basename = cfg_path.file_stem().unwrap().to_string_lossy().to_string() + "_backup";
+
+        cfg_path
+            .with_file_name(new_basename)
+            .with_extension(cfg_path.extension().unwrap())
+    }
+
+    #[logfn(Debug)]
+    pub fn backup<P: AsRef<Path>>(cfg: P) -> Result<()> {
+        let backup_path = Settings::backup_path(&cfg);
+        fs::copy(Path::new(cfg.as_ref()), backup_path).unwrap_or_else(|e| {
+            error!("{}", e);
+            1
+        });
+        Ok(())
+    }
 }
 
 impl Default for Spy {
@@ -182,10 +205,16 @@ impl Default for Spy {
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
                     cmd: "powershell".to_string(),
-                    arg: ["-NoProfile", "-ExecutionPolicy", "ByPass", "-File", "{{event_path}}"]
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect(),
+                    arg: [
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "ByPass",
+                        "-File",
+                        "{{event_path}}",
+                    ]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
                 },
                 Pattern {
                     pattern: "\\.cmd$".to_string(),

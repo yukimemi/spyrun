@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/11 23:54:34.
+// Last Change : 2023/10/16 21:14:07.
 // =============================================================================
 
 use std::{
@@ -57,6 +57,40 @@ pub fn insert_file_context<P: AsRef<Path>>(
         format!("{}_ext", &prefix),
         &p.extension().unwrap_or_default().to_string_lossy(),
     );
+    Ok(())
+}
+
+#[logfn(Debug)]
+pub fn insert_default_context(context: &mut Context) {
+    context.insert("input", "{{ input }}");
+    context.insert("output", "{{ output }}");
+    context.insert("event_path", "{{ event_path }}");
+    context.insert("event_dir", "{{ event_dir }}");
+    context.insert("event_dirname", "{{ event_dirname }}");
+    context.insert("event_name", "{{ event_name }}");
+    context.insert("event_stem", "{{ event_stem }}");
+    context.insert("event_ext", "{{ event_ext }}");
+    context.insert("stop_path", "{{ stop_path }}");
+    context.insert("stop_dir", "{{ stop_dir }}");
+    context.insert("stop_dirname", "{{ stop_dirname }}");
+    context.insert("stop_name", "{{ stop_name }}");
+    context.insert("stop_stem", "{{ stop_stem }}");
+    context.insert("stop_ext", "{{ stop_ext }}");
+}
+
+#[logfn(Debug)]
+pub fn render_vars(context: &mut Context, toml_str: &str) -> Result<()> {
+    let toml_value: toml::Value = toml::from_str(toml_str)?;
+    if let Some(vars) = toml_value.get("vars") {
+        vars.as_table().unwrap().iter().for_each(|(k, v)| {
+            let mut tera = new_tera("key", k).unwrap();
+            let k = tera.render_str(k, context).unwrap();
+            let v_str = v.as_str().unwrap();
+            let mut tera = new_tera("value", v_str).unwrap();
+            let v = tera.render_str(v_str, context).unwrap();
+            context.insert(k, &v);
+        })
+    }
     Ok(())
 }
 
