@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/16 21:14:07.
+// Last Change : 2023/10/18 00:14:25.
 // =============================================================================
 
 use std::{
@@ -76,6 +76,12 @@ pub fn insert_default_context(context: &mut Context) {
     context.insert("stop_name", "{{ stop_name }}");
     context.insert("stop_stem", "{{ stop_stem }}");
     context.insert("stop_ext", "{{ stop_ext }}");
+    context.insert("log_path", "{{ log_path }}");
+    context.insert("log_dir", "{{ log_dir }}");
+    context.insert("log_dirname", "{{ log_dirname }}");
+    context.insert("log_name", "{{ log_name }}");
+    context.insert("log_stem", "{{ log_stem }}");
+    context.insert("log_ext", "{{ log_ext }}");
 }
 
 #[logfn(Debug)]

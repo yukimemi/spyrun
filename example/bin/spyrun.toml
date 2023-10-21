@@ -1,0 +1,287 @@
+# =============================================================================
+# File        : spyrun.toml
+# Author      : yukimemi
+# Last Change : 2023/10/22 00:27:38.
+# =============================================================================
+
+[vars]
+base = '{{ cmd_dir }}\example'
+cfg_remote_path = '{{ base }}\bin\spyrun.toml'
+cmd_remote_dir = '{{ base }}\bin'
+cmd_remote_name = 'spyrun.exe'
+cmd_remote_path = '{{ cmd_remote_dir }}\{{ cmd_remote_name }}'
+hostname = '{{ env(arg="COMPUTERNAME") }}'
+version = '20231022_002738'
+
+[cfg]
+stop_flg = '{{ cmd_dir }}\stop.flg'
+
+[log]
+path = '{{ cmd_dir }}\..\log\{{ cmd_stem }}.log'
+level = 'debug'
+
+[init]
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  $ErrorActionPreference = "Stop"
+  trap { Write-Host $_; New-Item -Force -ItemType File "{{ stop_path }}" }
+  Write-Host "{{ version }}"
+  $stopFlg = $false
+  $copy = {
+    param([string]$local, [string]$remote, [bool]$bin = $false, [bool]$execute = $false)
+    $localHash = (Get-FileHash $local).Hash
+    $remoteHash = (Get-FileHash $remote).Hash
+    if ($remoteHash -ne $localHash -and $local -notmatch "_backup") {
+      if ($bin) {
+        $remoteDir = Split-Path -Parent $remote
+        & cmd /c start "" robocopy $remoteDir "{{ cmd_dir }}" {{ cmd_name }}
+      } else {
+        Copy-Item -Force $remote $local
+      }
+      if ($execute) {
+        & $local
+      }
+      $stopFlg = $true
+    }
+  }
+  & $copy "{{ cfg_path }}" "{{ cfg_remote_path }}"
+  & $copy "{{ cmd_path }}" "{{ cmd_remote_path }}" $true
+  & $copy "{{ cmd_dir }}\{{ cmd_stem }}.cmd" "{{ cmd_remote_dir }}\{{ cmd_stem }}.cmd" $false $true
+  & $copy "{{ cmd_dir }}\PsExec64.exe" "{{ cmd_remote_dir }}\PsExec64.exe"
+  & $copy "{{ cmd_dir }}\launch.js" "{{ cmd_remote_dir }}\launch.js"
+
+  if ($stopFlg) {
+    New-Item -Force -ItemType File "{{ stop_path }}"
+  }
+
+  New-Item -Force -ItemType Directory "{{ base }}\cmd\host\poll\system\{{ hostname }}\cmd"
+  New-Item -Force -ItemType Directory "{{ base }}\cmd\host\poll\user\{{ hostname }}\cmd"
+  New-Item -Force -ItemType Directory "{{ base }}\cmd\host\notify\system\{{ hostname }}\cmd"
+  New-Item -Force -ItemType Directory "{{ base }}\cmd\host\notify\user\{{ hostname }}\cmd"
+
+  New-Item -Force -ItemType Directory "{{ cmd_dir }}\..\kick\host\poll\system"
+  New-Item -Force -ItemType Directory "{{ cmd_dir }}\..\kick\host\poll\user"
+  New-Item -Force -ItemType Directory "{{ cmd_dir }}\..\kick\host\notify\system"
+  New-Item -Force -ItemType Directory "{{ cmd_dir }}\..\kick\host\notify\user"
+}''']
+
+# Update process when there is a change in spyrun.exe
+[[spys]]
+name = 'update_exe'
+input = '{{ base }}\bin'
+output = '{{ cmd_dir }}\..\log'
+[[spys.patterns]]
+pattern = '\.exe$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  $ErrorActionPreference = "Stop"
+  trap { Write-Host $_; New-Item -Force -ItemType File "{{ stop_path }}" }
+  & cmd /c start "" robocopy "{{ cmd_remote_dir }}" "{{ cmd_dir }}" {{ cmd_remote_name }}
+  New-Item -Force -ItemType File "{{ stop_path }}"
+}''']
+
+# Update process when there is a change in spyrun.toml
+[[spys]]
+name = 'update_toml'
+input = '{{ base }}\bin'
+output = '{{ cmd_dir }}\..\log'
+[[spys.patterns]]
+pattern = '\.toml$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  $ErrorActionPreference = "Stop"
+  trap { Write-Host $_; New-Item -Force -ItemType File "{{ stop_path }}" }
+  if ("{{ cfg_name }}" -match "_backup") {
+    $cfgPath = "{{ cfg_path }}" -replace "_backup", ""
+    Copy-Item -Force "{{ cfg_remote_path }}" $cfgPath
+  } else {
+    Copy-Item -Force "{{ cfg_remote_path }}" "{{ cfg_path }}"
+  }
+  New-Item -Force -ItemType File "{{ stop_path }}"
+}''']
+
+# Update process when there is a change in spyrun.cmd
+[[spys]]
+name = 'update_cmd'
+input = '{{ base }}\bin'
+output = '{{ cmd_dir }}\..\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  $ErrorActionPreference = "Stop"
+  trap { Write-Host $_; New-Item -Force -ItemType File "{{ stop_path }}" }
+  Copy-Item -Force "{{ event_path }}" "{{ cmd_dir }}\{{ event_name }}"
+  & "{{ cmd_dir }}\{{ event_name }}"
+  New-Item -Force -ItemType File "{{ stop_path }}"
+}''']
+
+# Execute under cmd/all/poll/system/cmd
+[[spys]]
+name = 'all_poll_system'
+input = '{{ base }}\cmd\all\poll\system\cmd'
+output = '{{ base }}\cmd\all\poll\system\log\{{ event_stem }}\{{ hostname }}'
+[spys.poll]
+interval = 10000
+[spys.walk]
+delay = [0, 60000]
+pattern = '\.cmd$'
+
+# Execute under cmd/host/poll/system/cmd
+[[spys]]
+name = 'host_poll_system'
+input = '{{ base }}\cmd\host\poll\system\{{ hostname }}\cmd'
+output = '{{ base }}\cmd\host\poll\system\{{ hostname }}\log\{{ event_stem }}'
+[spys.poll]
+interval = 10000
+[spys.walk]
+delay = [0, 60000]
+pattern = '\.cmd$'
+
+[[spys]]
+name = 'host_poll_user'
+input = '{{ base }}\cmd\host\poll\user\{{ hostname }}\cmd'
+output = '{{ base }}\cmd\host\poll\user\{{ hostname }}\log\{{ event_stem }}'
+[spys.poll]
+interval = 10000
+[spys.walk]
+delay = [0, 60000]
+pattern = '\.cmd$'
+
+# Execute under cmd/host/notify/system/cmd
+[[spys]]
+name = 'host_notify_system'
+input = '{{ base }}\cmd\host\notify\system\{{ hostname }}\cmd'
+output = '{{ base }}\cmd\host\notify\system\{{ hostname }}\log\{{ event_stem }}'
+[spys.walk]
+pattern = '\.cmd$'
+
+[[spys]]
+name = 'host_notify_user'
+input = '{{ base }}\cmd\host\notify\user\{{ hostname }}\cmd'
+output = '{{ base }}\cmd\host\notify\user\{{ hostname }}\log\{{ event_stem }}'
+[spys.walk]
+pattern = '\.cmd$'
+
+# Execute the cmd corresponding to the flag file under kick/all/poll/system/cmd
+[[spys]]
+name = 'kick_all_poll_system'
+input = '{{ cmd_dir }}\..\kick\all\poll\system'
+output = '{{ base }}\cmd\all\poll\system\log\{{ event_stem }}\{{ hostname }}'
+[[spys.patterns]]
+pattern = '\.flg$'
+cmd = '{{ base }}\cmd\all\poll\system\cmd\{{ event_stem }}.cmd'
+arg = ['main']
+
+# Execute the cmd corresponding to the flag file under kick/host/poll/system/cmd
+[[spys]]
+name = 'kick_host_poll_system'
+input = '{{ cmd_dir }}\..\kick\host\poll\system'
+output = '{{ base }}\cmd\host\poll\system\{{ hostname }}\log\{{ event_stem }}'
+[[spys.patterns]]
+pattern = '\.flg$'
+cmd = '{{ base }}\cmd\host\poll\system\{{ hostname }}\cmd\{{ event_stem }}.cmd'
+arg = ['main']
+
+# Execute the cmd corresponding to the flag file under kick/host/poll/user/cmd with PsExec64 on user sessionId
+[[spys]]
+name = 'kick_host_poll_user'
+input = '{{ cmd_dir }}\..\kick\host\poll\user'
+output = '{{ base }}\cmd\host\poll\user\{{ hostname }}\log\{{ event_stem }}'
+[[spys.patterns]]
+pattern = '\.flg$'
+cmd = 'powershell'
+arg = ['-WindowStyle', 'Hidden', '-NoProfile', '-Command', '''& {
+  $ErrorActionPreference = "Stop"
+  trap { Write-Host $_; throw $_ }
+  $sessionId = (Get-Process | Where-Object { $_.Name -eq "explorer" })[0].SessionId
+  Write-Host "sessionId: [${sessionId}]"
+  & "{{ cmd_dir }}\PSExec64.exe" -accepteula -d -i $sessionId wscript.exe "{{ cmd_dir }}\launch.js" cmd /c "{{ base }}\cmd\host\poll\user\{{ hostname }}\cmd\{{ event_stem }}.cmd" main
+}''']
+
+
+# --- development ---
+
+# Update when there is an editing update of cmd under ps1/bin
+[[spys]]
+name = 'update_cmd_bin_system'
+input = '{{ base }}\ps1\bin'
+output = '{{ base }}\ps1\bin\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  Move-Item -Force "{{ event_path }}" "{{ base }}\bin\{{ event_name }}"
+}''']
+[spys.walk]
+pattern = '\.cmd$'
+
+# Update when there is an editing update of cmd under ps1/all/poll/system
+[[spys]]
+name = 'update_cmd_all_poll_system'
+input = '{{ base }}\ps1\all\poll\system'
+output = '{{ base }}\ps1\all\poll\system\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  Move-Item -Force "{{ event_path }}" "{{ base }}\cmd\all\poll\system\cmd\{{ event_name }}"
+}''']
+[spys.walk]
+pattern = '\.cmd$'
+
+# Update when there is an editing update of cmd under ps1/host/poll/system
+[[spys]]
+name = 'update_cmd_host_poll_system'
+input = '{{ base }}\ps1\host\poll\system'
+output = '{{ base }}\ps1\host\poll\system\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  Move-Item -Force '{{ event_path }}' '{{ base }}\cmd\host\poll\system\{{ hostname }}\cmd\{{ event_name }}'
+}''']
+[spys.walk]
+pattern = '\.cmd$'
+
+[[spys]]
+name = 'update_cmd_host_poll_user'
+input = '{{ base }}\ps1\host\poll\user'
+output = '{{ base }}\ps1\host\poll\user\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  Move-Item -Force '{{ event_path }}' '{{ base }}\cmd\host\poll\user\{{ hostname }}\cmd\{{ event_name }}'
+}''']
+[spys.walk]
+pattern = '\.cmd$'
+
+# Update when there is an editing update of cmd under ps1/host/notify/system
+[[spys]]
+name = 'update_cmd_host_notify_system'
+input = '{{ base }}\ps1\host\notify\system'
+output = '{{ base }}\ps1\host\notify\system\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  Move-Item -Force '{{ event_path }}' '{{ base }}\cmd\host\notify\system\{{ hostname }}\cmd\{{ event_name }}'
+}''']
+[spys.walk]
+pattern = '\.cmd$'
+
+[[spys]]
+name = 'update_cmd_host_notify_user'
+input = '{{ base }}\ps1\host\notify\user'
+output = '{{ base }}\ps1\host\notify\user\log'
+[[spys.patterns]]
+pattern = '\.cmd$'
+cmd = 'powershell'
+arg = ['-NoProfile', '-Command', '''& {
+  Move-Item -Force '{{ event_path }}' '{{ base }}\cmd\host\notify\user\{{ hostname }}\cmd\{{ event_name }}'
+}''']
+[spys.walk]
+pattern = '\.cmd$'
+
+

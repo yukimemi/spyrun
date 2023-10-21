@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/16 21:18:18.
+// Last Change : 2023/10/17 18:50:40.
 // =============================================================================
 
 use std::{
@@ -15,7 +15,7 @@ use log_derive::logfn;
 use notify::RecursiveMode;
 use serde::{Deserialize, Deserializer};
 use tera::Context;
-use tracing::{error, info};
+use tracing::error;
 
 use crate::util::{insert_default_context, insert_file_context, new_tera, render_vars};
 
@@ -93,7 +93,7 @@ pub struct Settings {
 
 impl Settings {
     #[logfn(Debug)]
-    pub fn new<P: AsRef<Path>>(cfg: P, context: &mut Context) -> Result<Self> {
+    pub fn new<P: AsRef<Path>>(cfg: P, backup: bool, context: &mut Context) -> Result<Self> {
         insert_file_context(&cfg, "cfg", context)?;
         insert_default_context(context);
 
@@ -103,27 +103,14 @@ impl Settings {
         let toml_str = tera.render(&cfg.as_ref().to_string_lossy(), context)?;
         match toml::from_str(&toml_str) {
             Ok(s) => {
-                Settings::backup(&cfg)?;
+                if backup {
+                    Settings::backup(&cfg)?;
+                }
                 Ok(s)
             }
             Err(e) => {
                 error!("Failed to parse settings.toml. {:?}", e);
-                info!("Load from backup file.");
-                let backup_cfg_path = Settings::backup_path(&cfg);
-                let backup_toml_str = std::fs::read_to_string(&backup_cfg_path)?;
-                let tera = new_tera(backup_cfg_path.to_str().unwrap(), &backup_toml_str)?;
-                render_vars(context, &backup_toml_str)?;
-                let backup_toml_str = tera.render(backup_cfg_path.to_str().unwrap(), context)?;
-                match toml::from_str(&backup_toml_str) {
-                    Ok(s) => {
-                        Settings::backup(&cfg)?;
-                        Ok(s)
-                    }
-                    Err(e) => {
-                        error!("Failed to parse backup settings.toml. {:?}", e);
-                        Err(anyhow!("Failed to parse backup settings.toml"))
-                    }
-                }
+                Err(anyhow!("Failed to parse settings.toml."))
             }
         }
     }

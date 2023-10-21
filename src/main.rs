@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/13 21:21:17.
+// Last Change : 2023/10/18 01:06:49.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -237,11 +237,24 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     debug!("{:?}", &cli);
 
-    let settings = Settings::new(cli.config, &mut context)?.rebuild();
+    let mut load_error = String::new();
+    let settings = Settings::new(&cli.config, true, &mut context);
+    let settings = match settings {
+        Ok(s) => s.rebuild(),
+        Err(e) => {
+            load_error = format!("Failed to load toml. so use backup file. {}", e);
+            let backup_cfg_path = Settings::backup_path(&cli.config);
+            Settings::new(backup_cfg_path, false, &mut context)?.rebuild()
+        }
+    };
+
     debug!("{:?}", &settings);
 
     let (guard1, guard2) = logger::init(settings.clone(), &mut context)?;
     info!("==================== start ! ====================");
+    if !load_error.is_empty() {
+        error!(load_error);
+    }
     defer!({
         info!("==================== end ! ====================");
         drop(guard1);
