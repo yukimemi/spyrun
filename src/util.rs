@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/23 18:41:32.
+// Last Change : 2023/10/24 05:36:18.
 // =============================================================================
 
 use std::{
@@ -159,7 +159,7 @@ mod tests {
     use anyhow::Result;
     use tera::Context;
 
-    use crate::new_tera;
+    use crate::util::new_tera;
 
     #[test]
     fn test_enc_dec() -> Result<()> {

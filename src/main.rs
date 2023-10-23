@@ -1,35 +1,31 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/23 20:45:39.
+// Last Change : 2023/10/24 06:26:32.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
 
+mod command;
 mod logger;
 mod message;
 mod settings;
 mod spy;
 mod util;
 
-#[cfg(not(target_os = "windows"))]
-use std::os::unix::process::ExitStatusExt;
-#[cfg(not(target_os = "windows"))]
-use std::os::windows::process::ExitStatusExt;
 use std::{
     collections::HashMap,
     env,
-    fs::{create_dir_all, OpenOptions},
     path::{Path, PathBuf},
-    process::{Command, ExitStatus},
     sync::{mpsc, Arc, Mutex},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use anyhow::{bail, Result};
 use chrono::Local;
 use clap::Parser;
+use command::execute_command;
 use crypto_hash::{hex_digest, Algorithm};
 use go_defer::defer;
 use log_derive::logfn;
@@ -42,7 +38,7 @@ use settings::{Pattern, Settings, Spy};
 use single_instance::SingleInstance;
 use tera::Context;
 use tracing::{debug, error, info, warn};
-use util::{insert_file_context, new_tera};
+use util::insert_file_context;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -54,12 +50,6 @@ struct Cli {
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
-}
-
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
-struct CommandArgs {
-    command: String,
-    args: Vec<String>,
 }
 
 #[tracing::instrument]
@@ -116,80 +106,6 @@ fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
     } else {
         None
     }
-}
-
-#[tracing::instrument]
-#[logfn(Debug)]
-fn execute_command(
-    event_path: &PathBuf,
-    name: &str,
-    input: &str,
-    output: &str,
-    cmd: &str,
-    arg: Vec<String>,
-    threshold: Duration,
-    context: Context,
-    cache: &Arc<Mutex<HashMap<CommandArgs, Instant>>>,
-) -> Result<ExitStatus> {
-    let mut context = context.clone();
-    let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
-    insert_file_context(event_path, "event", &mut context).unwrap();
-    let tera = new_tera("cmd", cmd)?;
-    let cmd = tera.render("cmd", &context)?;
-    context.insert("cmd", &cmd);
-    let arg = &arg
-        .iter()
-        .map(|s| {
-            let tera = new_tera("arg", s).unwrap();
-            tera.render("arg", &context).unwrap()
-        })
-        .collect::<Vec<_>>();
-    context.insert("arg", &arg.join(" "));
-    let tera = new_tera("input", input)?;
-    let input = tera.render("input", &context)?;
-    context.insert("input", &input);
-    let tera = new_tera("output", output)?;
-    let output = tera.render("output", &context)?;
-    context.insert("output", &output);
-    create_dir_all(&output)?;
-    let stdout_path = PathBuf::from(&output).join(format!("{}_stdout_{}.log", &name, now));
-    let stdout_file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .create(true)
-        .open(&stdout_path)?;
-    let stderr_path = PathBuf::from(&output).join(format!("{}_stderr_{}.log", &name, now));
-    let stderr_file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .create(true)
-        .open(&stderr_path)?;
-    info!(
-        "Execute cmd: {}, arg: {}, stdout: {}, stderr: {}",
-        cmd,
-        arg.join(" "),
-        stdout_path.display(),
-        stderr_path.display()
-    );
-    let key = CommandArgs {
-        command: cmd.clone(),
-        args: arg.clone(),
-    };
-    let now = Instant::now();
-    let mut cache = cache.lock().unwrap();
-    if let Some(executed) = cache.get(&key) {
-        if now.duration_since(*executed) < threshold {
-            info!("Skip execute cmd: {}, arg: {}", cmd, arg.join(" "));
-            return Ok(ExitStatus::default());
-        }
-    }
-    cache.insert(key, now);
-    Ok(Command::new(cmd)
-        .args(arg)
-        .stdout(stdout_file)
-        .stderr(stderr_file)
-        .spawn()?
-        .wait()?)
 }
 
 #[tracing::instrument]
