@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/18 01:06:49.
+// Last Change : 2023/10/23 20:45:39.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -12,13 +12,19 @@ mod settings;
 mod spy;
 mod util;
 
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::process::ExitStatusExt;
+#[cfg(not(target_os = "windows"))]
+use std::os::windows::process::ExitStatusExt;
 use std::{
+    collections::HashMap,
     env,
     fs::{create_dir_all, OpenOptions},
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
-    sync::mpsc,
+    sync::{mpsc, Arc, Mutex},
     thread,
+    time::{Duration, Instant},
 };
 
 use anyhow::{bail, Result};
@@ -48,6 +54,12 @@ struct Cli {
     /// Turn debugging information on
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+struct CommandArgs {
+    command: String,
+    args: Vec<String>,
 }
 
 #[tracing::instrument]
@@ -115,7 +127,9 @@ fn execute_command(
     output: &str,
     cmd: &str,
     arg: Vec<String>,
+    threshold: Duration,
     context: Context,
+    cache: &Arc<Mutex<HashMap<CommandArgs, Instant>>>,
 ) -> Result<ExitStatus> {
     let mut context = context.clone();
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
@@ -157,6 +171,19 @@ fn execute_command(
         stdout_path.display(),
         stderr_path.display()
     );
+    let key = CommandArgs {
+        command: cmd.clone(),
+        args: arg.clone(),
+    };
+    let now = Instant::now();
+    let mut cache = cache.lock().unwrap();
+    if let Some(executed) = cache.get(&key) {
+        if now.duration_since(*executed) < threshold {
+            info!("Skip execute cmd: {}, arg: {}", cmd, arg.join(" "));
+            return Ok(ExitStatus::default());
+        }
+    }
+    cache.insert(key, now);
     Ok(Command::new(cmd)
         .args(arg)
         .stdout(stdout_file)
@@ -190,6 +217,8 @@ fn watcher(
                 }
             });
         });
+        let cache = HashMap::new();
+        let cache = Arc::new(Mutex::new(cache));
         for msg in rx {
             match msg {
                 Message::Event(event) => {
@@ -198,6 +227,7 @@ fn watcher(
                         let spy = spy.clone();
                         let event = event.clone();
                         let context = context.clone();
+                        let cache = cache.clone();
                         info!("[{}] pattern: {:?}", &spy.name, pattern);
                         rayon::spawn(move || {
                             let status = execute_command(
@@ -207,7 +237,9 @@ fn watcher(
                                 &spy.output.unwrap(),
                                 &pattern.cmd,
                                 pattern.arg,
+                                Duration::from_millis(spy.throttle.unwrap()),
                                 context,
+                                &cache,
                             );
                             tx_exec_clone.send(status).unwrap();
                         });
@@ -310,7 +342,9 @@ fn main() -> Result<()> {
             context.get("log_dir").unwrap().as_str().unwrap(),
             &init.cmd,
             init.arg.clone(),
+            Duration::from_secs(1),
             context.clone(),
+            &Arc::new(Mutex::new(HashMap::new())),
         );
         match status {
             Ok(s) => info!("Init command success status: {:?}", s),

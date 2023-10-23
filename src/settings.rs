@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/10/17 18:50:40.
+// Last Change : 2023/10/23 20:05:00.
 // =============================================================================
 
 use std::{
@@ -53,7 +53,7 @@ pub struct Spy {
         deserialize_with = "deserialize_recursive_mode"
     )]
     pub recursive: RecursiveMode,
-    pub debounce: Option<u64>,
+    pub throttle: Option<u64>,
     pub patterns: Option<Vec<Pattern>>,
     pub delay: Option<(u64, Option<u64>)>,
     pub poll: Option<Poll>,
@@ -138,7 +138,7 @@ impl Settings {
                         input: spy.input.clone().or(default_spy.input.clone()),
                         output: spy.output.clone().or(default_spy.output.clone()),
                         recursive: spy.recursive,
-                        debounce: spy.debounce.or(default_spy.debounce),
+                        throttle: spy.throttle.or(default_spy.throttle),
                         patterns: spy.patterns.clone().or(default_spy.patterns.clone()),
                         delay: spy.delay.or(default_spy.delay),
                         poll: spy.poll.clone().or(default_spy.poll.clone()),
@@ -187,7 +187,7 @@ impl Default for Spy {
             input: Some("input".to_string()),
             output: Some("output".to_string()),
             recursive: RecursiveMode::Recursive,
-            debounce: Some(500),
+            throttle: Some(500),
             patterns: Some(vec![
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
