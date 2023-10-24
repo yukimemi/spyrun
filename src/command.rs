@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2023/10/24 06:25:02.
+// Last Change : 2023/10/24 11:55:53.
 // =============================================================================
 
 use std::{
@@ -15,16 +15,16 @@ use std::{
 
 use anyhow::Result;
 use chrono::Local;
-
 use log_derive::logfn;
-
 use tera::Context;
 use tracing::{info, warn};
 
 use crate::util::{insert_file_context, new_tera};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-pub struct CommandArgs {
+pub struct ThrottleKey {
+    name: String,
+    event_path: PathBuf,
     command: String,
     args: Vec<String>,
 }
@@ -47,7 +47,7 @@ pub fn execute_command(
     arg: Vec<String>,
     threshold: Duration,
     context: Context,
-    cache: &Arc<Mutex<HashMap<CommandArgs, Instant>>>,
+    cache: &Arc<Mutex<HashMap<ThrottleKey, Instant>>>,
 ) -> Result<CommandResult> {
     let mut context = context.clone();
     insert_file_context(event_path, "event", &mut context).unwrap();
@@ -69,7 +69,9 @@ pub fn execute_command(
     let output = tera.render("output", &context)?;
     context.insert("output", &output);
     create_dir_all(&output)?;
-    let key = CommandArgs {
+    let key = ThrottleKey {
+        name: name.to_string(),
+        event_path: event_path.clone(),
         command: cmd.clone(),
         args: arg.clone(),
     };
@@ -121,9 +123,11 @@ pub fn execute_command(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use anyhow::Result;
     use std::{env, thread, time::Duration};
+
+    use anyhow::Result;
+
+    use super::*;
 
     #[test]
     fn test_execute_command() -> Result<()> {
