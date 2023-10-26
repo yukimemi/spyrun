@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2023/10/24 11:55:53.
+// Last Change : 2023/10/26 23:56:05.
 // =============================================================================
 
 use std::{
@@ -34,6 +34,7 @@ pub struct CommandResult {
     status: ExitStatus,
     stdout: PathBuf,
     stderr: PathBuf,
+    skipped: bool,
 }
 
 #[tracing::instrument]
@@ -76,18 +77,22 @@ pub fn execute_command(
         args: arg.clone(),
     };
     let now = Instant::now();
-    let mut cache = cache.lock().unwrap();
-    if let Some(executed) = cache.get(&key) {
+    let mut lock = cache.lock().unwrap();
+    let executed = lock.get(&key);
+    if let Some(executed) = executed {
         if now.duration_since(*executed) < threshold {
+            drop(lock);
             info!("Skip execute cmd: {}, arg: {}", cmd, arg.join(" "));
             return Ok(CommandResult {
                 status: ExitStatus::default(),
                 stdout: PathBuf::default(),
                 stderr: PathBuf::default(),
+                skipped: true,
             });
         }
     }
-    cache.insert(key, now);
+    lock.insert(key, now);
+    drop(lock);
 
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
     let stdout_path = PathBuf::from(&output).join(format!("{}_stdout_{}.log", &name, now));
@@ -118,6 +123,7 @@ pub fn execute_command(
             .wait()?,
         stdout: stdout_path,
         stderr: stderr_path,
+        skipped: false,
     })
 }
 
@@ -178,16 +184,80 @@ mod tests {
                     assert_eq!(result.status.code(), Some(0));
                     assert_ne!(result.stdout.to_str().unwrap(), "");
                     assert_ne!(result.stderr.to_str().unwrap(), "");
+                    assert!(!result.skipped);
                 } else {
                     assert_eq!(result.status.code(), Some(0));
                     assert_eq!(result.stdout.to_str().unwrap(), "");
                     assert_eq!(result.stderr.to_str().unwrap(), "");
+                    assert!(result.skipped);
                 }
             }));
             thread::sleep(Duration::from_millis(100));
         }
 
         handles.into_iter().for_each(|h| h.join().unwrap());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_execute_long_command() -> Result<()> {
+        let tmp = env::current_dir()?.join("test");
+        let event_path = PathBuf::from("event");
+        let name = "test";
+        let input = "input";
+        let output = tmp.join("test_execute_command");
+        #[cfg(windows)]
+        let cmd = "cmd";
+        #[cfg(not(windows))]
+        let cmd = "/bin/sh";
+        #[cfg(windows)]
+        let arg = vec!["/c", "timeout", "/t", "3"]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        #[cfg(not(windows))]
+        let arg = vec!["-c", "sleep", "3"]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        let threshold = Duration::from_millis(100);
+        let context = Context::new();
+        let cache = Arc::new(Mutex::new(HashMap::new()));
+
+        let mut handles = vec![];
+        let start = Instant::now();
+        for _ in 0..3 {
+            let cache = cache.clone();
+            let event_path = event_path.clone();
+            let arg = arg.clone();
+            let context = context.clone();
+            let output = output.clone();
+            handles.push(thread::spawn(move || {
+                let result = execute_command(
+                    &event_path,
+                    name,
+                    input,
+                    output.to_str().unwrap(),
+                    cmd,
+                    arg,
+                    threshold,
+                    context,
+                    &cache,
+                )
+                .unwrap();
+                assert_eq!(result.status.code(), Some(0));
+                assert_ne!(result.stdout.to_str().unwrap(), "");
+                assert_ne!(result.stderr.to_str().unwrap(), "");
+                assert!(!result.skipped);
+            }));
+            thread::sleep(Duration::from_millis(200));
+        }
+        handles.into_iter().for_each(|h| h.join().unwrap());
+
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        assert!(duration < Duration::from_secs(6));
 
         Ok(())
     }
