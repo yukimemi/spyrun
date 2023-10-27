@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2023/10/26 23:56:05.
+// Last Change : 2023/10/27 21:40:02.
 // =============================================================================
 
 use std::{
@@ -210,17 +210,14 @@ mod tests {
         #[cfg(windows)]
         let cmd = "cmd";
         #[cfg(not(windows))]
-        let cmd = "/bin/sh";
+        let cmd = "sleep";
         #[cfg(windows)]
         let arg = vec!["/c", "timeout", "/t", "3"]
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
         #[cfg(not(windows))]
-        let arg = vec!["-c", "sleep", "3"]
-            .into_iter()
-            .map(String::from)
-            .collect::<Vec<_>>();
+        let arg = vec!["3"].into_iter().map(String::from).collect::<Vec<_>>();
         let threshold = Duration::from_millis(100);
         let context = Context::new();
         let cache = Arc::new(Mutex::new(HashMap::new()));
