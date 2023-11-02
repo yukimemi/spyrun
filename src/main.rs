@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/10/24 06:26:32.
+// Last Change : 2023/11/03 01:02:24.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -153,6 +153,7 @@ fn watcher(
                                 &spy.output.unwrap(),
                                 &pattern.cmd,
                                 pattern.arg,
+                                Duration::from_millis(spy.debounce.unwrap()),
                                 Duration::from_millis(spy.throttle.unwrap()),
                                 context,
                                 &cache,
@@ -258,6 +259,7 @@ fn main() -> Result<()> {
             context.get("log_dir").unwrap().as_str().unwrap(),
             &init.cmd,
             init.arg.clone(),
+            Duration::from_secs(0),
             Duration::from_secs(1),
             context.clone(),
             &Arc::new(Mutex::new(HashMap::new())),
