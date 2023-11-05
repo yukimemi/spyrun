@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 01:02:52.
+// Last Change : 2023/11/06 01:37:06.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -249,7 +249,7 @@ fn main() -> Result<()> {
             ),
         )
     };
-    insert_file_context(&stop_force_flg, "stop", &mut context)?;
+    insert_file_context(&stop_force_flg, "stop_force", &mut context)?;
 
     let tx_stop_clone = tx_stop.clone();
     let stop_flg_clone = stop_flg.clone();
