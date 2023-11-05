@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/11/03 01:02:24.
+// Last Change : 2023/11/06 01:02:52.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -233,23 +233,66 @@ fn main() -> Result<()> {
         Path::new(&settings.cfg.stop_flg).to_path_buf()
     };
     insert_file_context(&stop_flg, "stop", &mut context)?;
+    let stop_force_flg = if let Some(s) = &settings.cfg.stop_force_flg {
+        if Path::new(s).is_relative() {
+            Path::join(env::current_dir()?.as_path(), s)
+        } else {
+            Path::new(s).to_path_buf()
+        }
+    } else {
+        Path::join(
+            stop_flg.parent().unwrap(),
+            format!(
+                "{}_force_{}",
+                stop_flg.file_stem().unwrap().to_string_lossy(),
+                stop_flg.extension().unwrap().to_string_lossy()
+            ),
+        )
+    };
+    insert_file_context(&stop_force_flg, "stop", &mut context)?;
+
+    let tx_stop_clone = tx_stop.clone();
+    let stop_flg_clone = stop_flg.clone();
     let mut stop_watcher =
         notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
             Ok(event) => {
                 let event_str = event_kind_to_string(event.kind);
                 if vec!["Create", "Modify"].into_iter().any(|e| e == event_str)
-                    && event.paths.last().unwrap() == Path::new(&stop_flg)
+                    && event.paths.last().unwrap() == Path::new(&stop_flg_clone)
                 {
-                    tx_stop.send("stop").unwrap();
+                    tx_stop_clone.send("stop".to_string()).unwrap();
                 }
             }
             Err(e) => error!("stop watch error: {:?}", e),
         })?;
     stop_watcher.watch(
-        Path::new(&settings.cfg.stop_flg).parent().unwrap(),
+        stop_flg.clone().parent().unwrap(),
         RecursiveMode::NonRecursive,
     )?;
     info!("watching stop flg {}", &settings.cfg.stop_flg);
+
+    let tx_stop_force_clone = tx_stop.clone();
+    let stop_force_flg_clone = stop_force_flg.clone();
+    let mut stop_force_watcher =
+        notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
+            Ok(event) => {
+                let event_str = event_kind_to_string(event.kind);
+                if vec!["Create", "Modify"].into_iter().any(|e| e == event_str)
+                    && event.paths.last().unwrap() == Path::new(&stop_force_flg_clone)
+                {
+                    tx_stop_force_clone.send("stop_force".to_string()).unwrap();
+                }
+            }
+            Err(e) => error!("stop force watch error: {:?}", e),
+        })?;
+    stop_force_watcher.watch(
+        stop_force_flg.parent().unwrap(),
+        RecursiveMode::NonRecursive,
+    )?;
+    info!(
+        "watching stop force flg {}",
+        &stop_force_flg.to_string_lossy()
+    );
 
     if let Some(init) = &settings.init {
         let status = execute_command(
@@ -288,7 +331,14 @@ fn main() -> Result<()> {
     // Wait stop...
     loop {
         match rx_stop.recv() {
-            Ok("stop") => break,
+            Ok(s) if s == "stop" => {
+                info!("Received stop");
+                break;
+            }
+            Ok(s) if s == "stop_force" => {
+                info!("Received stop_force");
+                std::process::exit(1);
+            }
             Err(e) => error!("stop watch error: {:?}", e),
             _ => unreachable!(),
         }
