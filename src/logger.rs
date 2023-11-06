@@ -1,12 +1,17 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/10/10 17:00:11.
+// Last Change : 2023/11/06 14:07:14.
 // =============================================================================
 
-use std::{env, fs::create_dir_all};
+use std::{
+    env, fs,
+    fs::create_dir_all,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
+use chrono::Local;
 use tera::Context;
 use time::UtcOffset;
 use tracing_appender::non_blocking;
@@ -33,6 +38,28 @@ pub fn init(
     let log_dir = context.get("log_dir").unwrap().as_str().unwrap();
     let log_name = context.get("log_name").unwrap().as_str().unwrap();
     create_dir_all(log_dir)?;
+
+    let old_log_path = Path::join(
+        &PathBuf::from(log_dir),
+        format!(
+            "{}.{}",
+            &log_name,
+            &Local::now().format("%Y-%m-%d").to_string()
+        ),
+    );
+    let rename_log_path = Path::join(
+        &PathBuf::from(log_dir),
+        format!(
+            "{}_{}.{}",
+            context.get("log_stem").unwrap().as_str().unwrap(),
+            context.get("now").unwrap().as_str().unwrap(),
+            context.get("log_ext").unwrap().as_str().unwrap()
+        ),
+    );
+
+    if old_log_path.is_file() {
+        fs::rename(old_log_path, rename_log_path)?;
+    }
 
     let time_format = time::format_description::well_known::Iso8601::DEFAULT;
     // let timer = LocalTime::new(time_format); // issues: https://github.com/tokio-rs/tracing/issues/2715

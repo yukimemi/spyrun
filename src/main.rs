@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 01:37:06.
+// Last Change : 2023/11/06 20:06:33.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -37,7 +37,7 @@ use regex::Regex;
 use settings::{Pattern, Settings, Spy};
 use single_instance::SingleInstance;
 use tera::Context;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 use util::insert_file_context;
 
 #[derive(Parser, Debug)]
@@ -70,7 +70,7 @@ fn build_cmd_map() -> Result<Context> {
 }
 
 #[tracing::instrument]
-#[logfn(Debug)]
+#[logfn(Trace)]
 fn event_kind_to_string(kind: EventKind) -> String {
     match kind {
         EventKind::Create(_) => "Create".to_string(),
@@ -82,15 +82,10 @@ fn event_kind_to_string(kind: EventKind) -> String {
 }
 
 #[tracing::instrument]
-#[logfn(Debug)]
+#[logfn(Trace)]
 fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
     let event_kind = event_kind_to_string(event.kind);
     let event_path = event.paths.last().unwrap();
-    info!(
-        "event_kind: {}, event_path: {}",
-        &event_kind,
-        &event_path.to_string_lossy()
-    );
     let event_match = spy
         .events
         .as_ref()
@@ -102,6 +97,11 @@ fn find_pattern(event: &notify::Event, spy: &Spy) -> Option<Pattern> {
         re.is_match(&event_path.to_string_lossy())
     });
     if event_match {
+        trace!(
+            "event_kind: {}, event_path: {}",
+            &event_kind,
+            &event_path.to_string_lossy()
+        );
         match_pattern.cloned()
     } else {
         None
@@ -243,7 +243,7 @@ fn main() -> Result<()> {
         Path::join(
             stop_flg.parent().unwrap(),
             format!(
-                "{}_force_{}",
+                "{}_force.{}",
                 stop_flg.file_stem().unwrap().to_string_lossy(),
                 stop_flg.extension().unwrap().to_string_lossy()
             ),

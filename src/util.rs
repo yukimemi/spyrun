@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/10/24 05:36:18.
+// Last Change : 2023/11/06 21:44:53.
 // =============================================================================
 
 use std::{
@@ -20,7 +20,7 @@ use base64::{engine::general_purpose, Engine as _};
 use log_derive::logfn;
 use path_slash::{PathBufExt as _, PathExt as _};
 use tera::{Context, Tera, Value};
-use tracing::debug;
+use tracing::trace;
 
 const KEY: &[u8; 32] = b"an example very very secret key.";
 const NONCE: &[u8; 12] = b"unique nonce";
@@ -32,7 +32,7 @@ pub fn insert_file_context<P: AsRef<Path>>(
     context: &mut Context,
 ) -> Result<()> {
     let mut p = PathBuf::from(p.as_ref());
-    debug!("p: {:?}", p);
+    trace!("p: {:?}", p);
     if p.is_relative() {
         p = std::env::current_dir()?.join(p);
     }
@@ -76,6 +76,12 @@ pub fn insert_default_context(context: &mut Context) {
     context.insert("stop_name", "{{ stop_name }}");
     context.insert("stop_stem", "{{ stop_stem }}");
     context.insert("stop_ext", "{{ stop_ext }}");
+    context.insert("stop_force_path", "{{ stop_force_path }}");
+    context.insert("stop_force_dir", "{{ stop_force_dir }}");
+    context.insert("stop_force_dirname", "{{ stop_force_dirname }}");
+    context.insert("stop_force_name", "{{ stop_force_name }}");
+    context.insert("stop_force_stem", "{{ stop_force_stem }}");
+    context.insert("stop_force_ext", "{{ stop_force_ext }}");
     context.insert("log_path", "{{ log_path }}");
     context.insert("log_dir", "{{ log_dir }}");
     context.insert("log_dirname", "{{ log_dirname }}");
@@ -84,7 +90,7 @@ pub fn insert_default_context(context: &mut Context) {
     context.insert("log_ext", "{{ log_ext }}");
 }
 
-#[logfn(Debug)]
+#[logfn(Trace)]
 pub fn render_vars(context: &mut Context, toml_str: &str) -> Result<()> {
     let toml_value: toml::Value = toml::from_str(toml_str)?;
     if let Some(vars) = toml_value.get("vars") {

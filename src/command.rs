@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2023/11/03 01:09:03.
+// Last Change : 2023/11/06 14:17:39.
 // =============================================================================
 
 use std::{
@@ -41,7 +41,7 @@ pub struct CommandResult {
 }
 
 #[tracing::instrument]
-#[logfn(Debug)]
+#[logfn(Trace)]
 pub fn render_command(key: CommandKey, context: Context) -> Result<CommandKey> {
     let mut context = context.clone();
     insert_file_context(&key.event_path, "event", &mut context).unwrap();
@@ -76,7 +76,7 @@ pub fn render_command(key: CommandKey, context: Context) -> Result<CommandKey> {
 }
 
 #[tracing::instrument]
-#[logfn(Debug)]
+#[logfn(Trace)]
 pub fn debounce_command(
     key: CommandKey,
     threshold: Duration,
@@ -112,7 +112,7 @@ pub fn debounce_command(
 }
 
 #[tracing::instrument]
-#[logfn(Debug)]
+#[logfn(Trace)]
 pub fn throttle_command(
     key: CommandKey,
     threshold: Duration,
@@ -182,7 +182,7 @@ pub fn exec(key: CommandKey) -> Result<CommandResult> {
 }
 
 #[tracing::instrument]
-#[logfn(Debug)]
+#[logfn(Trace)]
 pub fn execute_command(
     event_path: &PathBuf,
     name: &str,

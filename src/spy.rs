@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2023/10/14 18:31:52.
+// Last Change : 2023/11/06 14:18:39.
 // =============================================================================
 
 use std::{
@@ -36,7 +36,7 @@ impl Spy {
     }
 
     #[tracing::instrument]
-    #[logfn(Debug)]
+    #[logfn(Trace)]
     fn notify_watch(&self, tx: mpsc::Sender<Message>) -> Result<RecommendedWatcher> {
         let spy = self.clone();
         let mut watcher = recommended_watcher(move |res| match res {
@@ -51,7 +51,7 @@ impl Spy {
     }
 
     #[tracing::instrument]
-    #[logfn(Debug)]
+    #[logfn(Trace)]
     fn poll_watch(&self, tx: mpsc::Sender<Message>) -> Result<PollWatcher> {
         let spy = self.clone();
         let mut watcher = PollWatcher::new(
@@ -95,7 +95,7 @@ impl Spy {
     }
 
     #[tracing::instrument]
-    #[logfn(Debug)]
+    #[logfn(Trace)]
     pub fn walk(&self, tx: mpsc::Sender<Message>) -> Result<JoinHandle<()>> {
         self.walk_delay();
         let spy = self.clone();
