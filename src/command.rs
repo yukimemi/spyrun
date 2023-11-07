@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 14:17:39.
+// Last Change : 2023/11/07 23:37:40.
 // =============================================================================
 
 use std::{
@@ -45,6 +45,9 @@ pub struct CommandResult {
 pub fn render_command(key: CommandKey, context: Context) -> Result<CommandKey> {
     let mut context = context.clone();
     insert_file_context(&key.event_path, "event", &mut context).unwrap();
+    let tera = new_tera("spy_name", &key.name)?;
+    let spy_name = tera.render("spy_name", &context)?;
+    context.insert("spy_name", &spy_name);
     let tera = new_tera("cmd", &key.cmd)?;
     let cmd = tera.render("cmd", &context)?;
     context.insert("cmd", &cmd);
@@ -83,7 +86,6 @@ pub fn debounce_command(
     context: Context,
     cache: &Arc<Mutex<HashMap<CommandKey, Instant>>>,
 ) -> Result<CommandResult> {
-    let key = render_command(key, context)?;
     let now = Instant::now();
     let mut lock = cache.lock().unwrap();
     lock.insert(key.clone(), now);
@@ -119,7 +121,6 @@ pub fn throttle_command(
     context: Context,
     cache: &Arc<Mutex<HashMap<CommandKey, Instant>>>,
 ) -> Result<CommandResult> {
-    let key = render_command(key, context)?;
     let now = Instant::now();
     let mut lock = cache.lock().unwrap();
     let executed = lock.get(&key);
@@ -195,37 +196,24 @@ pub fn execute_command(
     context: Context,
     cache: &Arc<Mutex<HashMap<CommandKey, Instant>>>,
 ) -> Result<CommandResult> {
+    let command_key = render_command(
+        CommandKey {
+            name: name.to_string(),
+            event_path: event_path.clone(),
+            cmd: cmd.to_string(),
+            arg: arg.clone(),
+            input: input.to_string(),
+            output: output.to_string(),
+        },
+        context.clone(),
+    )?;
     if debounce > Duration::from_millis(0) {
-        return debounce_command(
-            CommandKey {
-                name: name.to_string(),
-                event_path: event_path.clone(),
-                cmd: cmd.to_string(),
-                arg: arg.clone(),
-                input: input.to_string(),
-                output: output.to_string(),
-            },
-            debounce,
-            context.clone(),
-            cache,
-        );
+        return debounce_command(command_key, debounce, context.clone(), cache);
     }
     if throttle > Duration::from_millis(0) {
-        return throttle_command(
-            CommandKey {
-                name: name.to_string(),
-                event_path: event_path.clone(),
-                cmd: cmd.to_string(),
-                arg: arg.clone(),
-                input: input.to_string(),
-                output: output.to_string(),
-            },
-            throttle,
-            context.clone(),
-            cache,
-        );
+        return throttle_command(command_key, throttle, context.clone(), cache);
     }
-    unreachable!()
+    panic!("`debounce` or `throttle` must set !");
 }
 
 #[cfg(test)]

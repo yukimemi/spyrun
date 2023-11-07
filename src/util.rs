@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 21:44:53.
+// Last Change : 2023/11/07 22:52:31.
 // =============================================================================
 
 use std::{
@@ -62,6 +62,7 @@ pub fn insert_file_context<P: AsRef<Path>>(
 
 #[logfn(Debug)]
 pub fn insert_default_context(context: &mut Context) {
+    context.insert("spy_name", "{{ spy_name }}");
     context.insert("input", "{{ input }}");
     context.insert("output", "{{ output }}");
     context.insert("event_path", "{{ event_path }}");
