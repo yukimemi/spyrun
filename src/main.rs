@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 20:06:33.
+// Last Change : 2023/11/06 23:51:06.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -343,6 +343,16 @@ fn main() -> Result<()> {
             _ => unreachable!(),
         }
     }
+
+    // Recv stop_force
+    thread::spawn(move || match rx_stop.recv() {
+        Ok(s) if s == "stop_force" => {
+            info!("Received stop_force");
+            std::process::exit(1);
+        }
+        Err(e) => error!("stop watch error: {:?}", e),
+        _ => unreachable!(),
+    });
 
     results.into_par_iter().for_each(|result| {
         if let Some((handle, tx)) = result {
