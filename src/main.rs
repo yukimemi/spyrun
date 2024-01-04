@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 23:51:06.
+// Last Change : 2023/12/10 12:35:43.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -117,6 +117,7 @@ fn watcher(
     let (tx, rx) = mpsc::channel();
     let (tx_execute, rx_execute) = mpsc::channel();
     let tx_clone = tx.clone();
+    info!("[watcher] watch start: {}", &spy.name);
     let handle = thread::spawn(move || -> String {
         if let Some(ref _walk) = spy.walk {
             let handle = spy.walk(tx_clone.clone()).unwrap();
@@ -212,7 +213,8 @@ fn main() -> Result<()> {
 
     let cmd_line = context.get("cmd_line").unwrap().as_str().unwrap();
     debug!("cmd_line: {}", &cmd_line);
-    let hash = hex_digest(Algorithm::SHA256, cmd_line.as_bytes());
+    let toml_str = std::fs::read_to_string(&cli.config)?;
+    let hash = hex_digest(Algorithm::SHA256, toml_str.as_bytes());
     #[cfg(not(target_os = "windows"))]
     let hash = env::temp_dir().join(hash);
     #[cfg(not(target_os = "windows"))]
