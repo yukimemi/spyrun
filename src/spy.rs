@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 14:18:39.
+// Last Change : 2024/03/31 23:06:36.
 // =============================================================================
 
 use std::{
@@ -15,7 +15,7 @@ use anyhow::Result;
 use log_derive::logfn;
 use normalize_path::NormalizePath;
 use notify::{
-    event::{EventAttributes, ModifyKind},
+    event::{AccessKind, CreateKind, EventAttributes, ModifyKind, RemoveKind},
     recommended_watcher, Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
 };
 use rand::Rng;
@@ -24,6 +24,18 @@ use tracing::{debug, error};
 use walkdir::WalkDir;
 
 use crate::{message::Message, settings::Spy};
+
+#[tracing::instrument]
+#[logfn(Trace)]
+fn string_to_event_kind(str: &str) -> EventKind {
+    match str {
+        "Create" => EventKind::Create(CreateKind::Any),
+        "Remove" => EventKind::Remove(RemoveKind::Any),
+        "Modify" => EventKind::Modify(ModifyKind::Any),
+        "Access" => EventKind::Access(AccessKind::Any),
+        _ => EventKind::Modify(ModifyKind::Any),
+    }
+}
 
 impl Spy {
     #[tracing::instrument]
@@ -118,6 +130,12 @@ impl Spy {
         let walker = walker.into_iter();
 
         debug!("[{}] walk input: [{}]", &spy.name, &spy.input.unwrap());
+        let event_kind_str = &spy
+            .events
+            .clone()
+            .or(Some(vec!["Create".to_string(), "Modify".to_string()]))
+            .unwrap()[0];
+        let event_kind = string_to_event_kind(&event_kind_str);
         let handle = thread::spawn(move || {
             match walk.pattern {
                 Some(pattern) => {
@@ -129,7 +147,7 @@ impl Spy {
                         .filter(|e| e.path().to_str().map_or(false, |s| re.is_match(s)))
                         .for_each(|e| {
                             tx.send(Message::Event(Event {
-                                kind: EventKind::Modify(ModifyKind::Any),
+                                kind: event_kind,
                                 paths: vec![e.path().to_path_buf()],
                                 attrs: EventAttributes::new(),
                             }))
@@ -138,7 +156,7 @@ impl Spy {
                 }
                 _ => walker.filter_map(|e| e.ok()).for_each(|e| {
                     tx.send(Message::Event(Event {
-                        kind: EventKind::Modify(ModifyKind::Any),
+                        kind: event_kind,
                         paths: vec![e.path().to_path_buf()],
                         attrs: EventAttributes::new(),
                     }))

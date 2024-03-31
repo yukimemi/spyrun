@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/03/31 20:10:42.
+// Last Change : 2024/03/31 23:51:48.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -345,6 +345,7 @@ fn main() -> Result<()> {
             }
             Ok(s) if s == "stop_force" => {
                 info!("Received stop_force");
+                info!("==================== end ! ====================");
                 std::process::exit(1);
             }
             Err(e) => error!("stop watch error: {:?}", e),
@@ -356,6 +357,7 @@ fn main() -> Result<()> {
     thread::spawn(move || match rx_stop.recv() {
         Ok(s) if s == "stop_force" => {
             info!("Received stop_force");
+            info!("==================== end ! ====================");
             std::process::exit(1);
         }
         Err(e) => error!("stop watch error: {:?}", e),
