@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 00:52:30.
+// Last Change : 2024/03/31 20:04:32.
 // =============================================================================
 
 use std::{
@@ -76,6 +76,7 @@ pub struct Log {
 pub struct Cfg {
     pub stop_flg: String,
     pub stop_force_flg: Option<String>,
+    pub max_threads: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2023/12/10 12:35:43.
+// Last Change : 2024/03/31 20:10:42.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -199,6 +199,12 @@ fn main() -> Result<()> {
     };
 
     debug!("{:?}", &settings);
+
+    if let Some(max_threads) = &settings.cfg.max_threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(*max_threads)
+            .build_global()?;
+    }
 
     let (guard1, guard2) = logger::init(settings.clone(), &mut context)?;
     info!("==================== start ! ====================");
