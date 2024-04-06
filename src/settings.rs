@@ -1,11 +1,10 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2024/04/02 05:35:16.
+// Last Change : 2024/04/06 14:06:22.
 // =============================================================================
 
 use std::{
-    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -62,15 +61,12 @@ pub struct Spy {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Vars {
-    pub vars: HashMap<String, String>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct Log {
     pub path: String,
     #[serde(default = "default_loglevel")]
     pub level: String,
+    #[serde(default)]
+    pub switch: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]

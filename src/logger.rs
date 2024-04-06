@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2024/04/02 05:32:04.
+// Last Change : 2024/04/06 14:04:12.
 // =============================================================================
 
 use std::{
@@ -39,26 +39,28 @@ pub fn init(
     let log_name = context.get("log_name").unwrap().as_str().unwrap();
     create_dir_all(log_dir)?;
 
-    let old_log_path = Path::join(
-        &PathBuf::from(log_dir),
-        format!(
-            "{}.{}",
-            &log_name,
-            &Local::now().format("%Y-%m-%d").to_string()
-        ),
-    );
-    let rename_log_path = Path::join(
-        &PathBuf::from(log_dir),
-        format!(
-            "{}_{}.{}",
-            context.get("log_stem").unwrap().as_str().unwrap(),
-            context.get("now").unwrap().as_str().unwrap(),
-            context.get("log_ext").unwrap().as_str().unwrap()
-        ),
-    );
+    if settings.log.switch {
+        let old_log_path = Path::join(
+            &PathBuf::from(log_dir),
+            format!(
+                "{}.{}",
+                &log_name,
+                &Local::now().format("%Y-%m-%d").to_string()
+            ),
+        );
+        let rename_log_path = Path::join(
+            &PathBuf::from(log_dir),
+            format!(
+                "{}_{}.{}",
+                context.get("log_stem").unwrap().as_str().unwrap(),
+                context.get("now").unwrap().as_str().unwrap(),
+                context.get("log_ext").unwrap().as_str().unwrap()
+            ),
+        );
 
-    if old_log_path.is_file() {
-        fs::rename(old_log_path, rename_log_path)?;
+        if old_log_path.is_file() {
+            fs::rename(old_log_path, rename_log_path)?;
+        }
     }
 
     let time_format = time::format_description::well_known::Iso8601::DEFAULT;
