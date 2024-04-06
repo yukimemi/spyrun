@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2023/11/07 23:37:40.
+// Last Change : 2024/04/02 14:25:42.
 // =============================================================================
 
 use std::{
@@ -18,7 +18,7 @@ use anyhow::Result;
 use chrono::Local;
 use log_derive::logfn;
 use tera::Context;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::util::{insert_file_context, new_tera};
 
@@ -96,7 +96,7 @@ pub fn debounce_command(
     let lock = cache.lock().unwrap();
     let executed = lock.get(&key).unwrap();
     if executed > &now {
-        info!(
+        debug!(
             "Debounce ! Skip execute cmd: {}, arg: {}",
             key.cmd,
             key.arg.join(" ")
@@ -127,7 +127,7 @@ pub fn throttle_command(
     if let Some(executed) = executed {
         if now.duration_since(*executed) < threshold {
             drop(lock);
-            info!(
+            debug!(
                 "Throttle ! Skip execute cmd: {}, arg: {}",
                 key.cmd,
                 key.arg.join(" ")

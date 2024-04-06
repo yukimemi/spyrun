@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2023/11/06 14:07:14.
+// Last Change : 2024/04/02 05:32:04.
 // =============================================================================
 
 use std::{
@@ -78,7 +78,7 @@ pub fn init(
         // .json()
         .with_ansi(false)
         .with_filter(EnvFilter::new(
-            env::var("SPYRUN_LOG_FILE").unwrap_or_else(|_| "debug".to_string()),
+            env::var("SPYRUN_LOG_FILE").unwrap_or(settings.log.level),
         ))
         .boxed();
     let stdout_layer = Layer::default()

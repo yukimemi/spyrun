@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2024/03/31 20:04:32.
+// Last Change : 2024/04/02 05:35:16.
 // =============================================================================
 
 use std::{
@@ -69,6 +69,7 @@ pub struct Vars {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Log {
     pub path: String,
+    #[serde(default = "default_loglevel")]
     pub level: String,
 }
 
@@ -270,4 +271,9 @@ fn deserialize_recursive_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Recursi
 #[logfn(Debug)]
 fn default_recursive() -> RecursiveMode {
     RecursiveMode::NonRecursive
+}
+
+#[logfn(Debug)]
+fn default_loglevel() -> String {
+    "info".to_string()
 }

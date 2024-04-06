@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/03/31 23:51:48.
+// Last Change : 2024/04/02 13:40:23.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -129,7 +129,7 @@ fn watcher(
             rx_execute.into_iter().for_each(|status| {
                 debug!("[{}] rx_execute received: {:?}", &spy_clone.name, status);
                 match status {
-                    Ok(s) => info!("[{}] Command success status: {:?}", &spy_clone.name, s),
+                    Ok(s) => debug!("[{}] Command success status: {:?}", &spy_clone.name, s),
                     Err(e) => error!("[{}] Command error status: {:?}", &spy_clone.name, e),
                 }
             });
@@ -145,7 +145,7 @@ fn watcher(
                         let event = event.clone();
                         let context = context.clone();
                         let cache = cache.clone();
-                        info!("[{}] pattern: {:?}", &spy.name, pattern);
+                        debug!("[{}] pattern: {:?}", &spy.name, pattern);
                         rayon::spawn(move || {
                             let status = execute_command(
                                 event.paths.last().unwrap(),
