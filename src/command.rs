@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2024/04/02 14:25:42.
+// Last Change : 2024/04/06 14:49:55.
 // =============================================================================
 
 use std::{
@@ -153,12 +153,10 @@ pub fn exec(key: CommandKey) -> Result<CommandResult> {
     let stdout_path = PathBuf::from(&key.output).join(format!("{}_stdout_{}.log", &key.name, now));
     let stderr_path = PathBuf::from(&key.output).join(format!("{}_stderr_{}.log", &key.name, now));
     let stdout_file = OpenOptions::new()
-        .write(true)
         .append(true)
         .create(true)
         .open(&stdout_path)?;
     let stderr_file = OpenOptions::new()
-        .write(true)
         .append(true)
         .create(true)
         .open(&stderr_path)?;
@@ -218,9 +216,7 @@ pub fn execute_command(
 
 #[cfg(test)]
 mod tests {
-    use std::{env, thread, time::Duration};
-
-    use anyhow::Result;
+    use std::env;
 
     use super::*;
 

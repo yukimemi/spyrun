@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2024/03/31 23:06:36.
+// Last Change : 2024/04/06 14:51:27.
 // =============================================================================
 
 use std::{
@@ -133,9 +133,8 @@ impl Spy {
         let event_kind_str = &spy
             .events
             .clone()
-            .or(Some(vec!["Create".to_string(), "Modify".to_string()]))
-            .unwrap()[0];
-        let event_kind = string_to_event_kind(&event_kind_str);
+            .unwrap_or(vec!["Create".to_string(), "Modify".to_string()])[0];
+        let event_kind = string_to_event_kind(event_kind_str);
         let handle = thread::spawn(move || {
             match walk.pattern {
                 Some(pattern) => {
