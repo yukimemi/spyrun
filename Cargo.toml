@@ -3,38 +3,30 @@ name = "spyrun"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 aead = "0.5.2"
-aes = "0.8.3"
 aes-gcm-siv = "0.11.1"
-anyhow = "1.0.75"
-base64 = "0.21.4"
-block-modes = "0.9.1"
-chrono = "0.4.30"
-clap = { version = "4.3.8", features = ["derive", "env", "cargo", "unicode"] }
+anyhow = "1.0.81"
+base64 = "0.22.0"
+chrono = "0.4.37"
+clap = { version = "4.5.4", features = ["derive", "env", "cargo", "unicode"] }
 crypto-hash = "0.3.4"
-env_logger = "0.10.0"
 go-defer = "0.1.0"
-log = "0.4.20"
+log = "0.4.21"
 log-derive = "0.4.1"
 normalize-path = "0.2.1"
-notify = "6.0.1"
-notify-debouncer-full = "0.3.1"
+notify = "6.1.1"
 path-slash = "0.2.1"
 rand = "0.8.5"
-rayon = "1.8.0"
-regex = "1.9.1"
-serde = { version = "1.0.178", features = ["derive"] }
-serde_derive = "1.0.178"
-serde_json = "1.0.107"
+rayon = "1.10.0"
+regex = "1.10.4"
+serde = { version = "1.0.197", features = ["derive"] }
 single-instance = "0.3.3"
 tera = "1.19.1"
-time = { version = "0.3.24", features = ["macros", "local-offset"] }
-toml = "0.8.1"
-tracing = { version = "0.1.37", features = ["log", "attributes", "std", "tracing-attributes"] }
-tracing-appender = "0.2.2"
-tracing-log = "0.1.3"
-tracing-subscriber = { version = "0.3.17", features = ["time", "json", "local-time", "env-filter"] }
-walkdir = "2.4.0"
+time = { version = "0.3.34", features = ["macros", "local-offset"] }
+toml = "0.8.12"
+tracing = { version = "0.1.40", features = ["log", "attributes", "std", "tracing-attributes"] }
+tracing-appender = "0.2.3"
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["time", "json", "local-time", "env-filter"] }
+walkdir = "2.5.0"
