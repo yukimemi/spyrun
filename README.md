@@ -36,7 +36,7 @@ The configuration file specifies the files to watch, the commands to execute, an
 [vars]
 base = '{{ cwd }}/example'
 hostname = '{{ env(arg="COMPUTERNAME") }}'
-version = '20240407_112308'
+version = '20240407_125639'
 fn_toast = '''
 function Show-Toast {
   [CmdletBinding()]
@@ -70,12 +70,12 @@ function Show-Toast {
 '''
 
 [cfg]
-stop_flg = '{{ cwd }}/stop.flg'
-stop_force_flg = '{{ cwd }}/stop.force.flg'
+stop_flg = '{{ base }}/stop.flg'
+stop_force_flg = '{{ base }}/stop.force.flg'
 max_threads = 8
 
 [log]
-path = '{{ cwd }}/log/{{ cmd_stem }}.log'
+path = '{{ base }}/log/{{ cmd_stem }}.log'
 level = 'info'
 
 [init]
@@ -88,8 +88,8 @@ arg = ['-NoProfile', '-Command', '''& {
 # watch files and notifiy.
 [[spys]]
 name = 'toast'
-input = '{{ cwd }}/watch_dir'
-output = '{{ cwd }}/log'
+input = '{{ base }}/watch_dir'
+output = '{{ base }}/log'
 [[spys.patterns]]
 pattern = '\.txt$'
 cmd = 'powershell'
