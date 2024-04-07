@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/04/02 13:40:23.
+// Last Change : 2024/04/07 11:21:14.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -140,11 +140,13 @@ fn watcher(
             match msg {
                 Message::Event(event) => {
                     if let Some(pattern) = find_pattern(&event, &spy) {
+                        let event_kind = event_kind_to_string(event.kind);
                         let tx_exec_clone = tx_execute.clone();
                         let spy = spy.clone();
                         let event = event.clone();
-                        let context = context.clone();
                         let cache = cache.clone();
+                        let mut context = context.clone();
+                        context.insert("event_kind", &event_kind);
                         debug!("[{}] pattern: {:?}", &spy.name, pattern);
                         rayon::spawn(move || {
                             let status = execute_command(
@@ -355,8 +357,8 @@ fn main() -> Result<()> {
 
     // Recv stop_force
     thread::spawn(move || match rx_stop.recv() {
-        Ok(s) if s == "stop_force" => {
-            info!("Received stop_force");
+        Ok(s) if s == "stop" || s == "stop_force" => {
+            info!("Received stop or stop_force");
             info!("==================== end ! ====================");
             std::process::exit(1);
         }

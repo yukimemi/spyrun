@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2023/11/07 22:52:31.
+// Last Change : 2024/04/07 11:22:39.
 // =============================================================================
 
 use std::{
@@ -65,6 +65,7 @@ pub fn insert_default_context(context: &mut Context) {
     context.insert("spy_name", "{{ spy_name }}");
     context.insert("input", "{{ input }}");
     context.insert("output", "{{ output }}");
+    context.insert("event_kind", "{{ event_kind }}");
     context.insert("event_path", "{{ event_path }}");
     context.insert("event_dir", "{{ event_dir }}");
     context.insert("event_dirname", "{{ event_dirname }}");
