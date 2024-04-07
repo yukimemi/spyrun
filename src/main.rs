@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/04/07 11:21:14.
+// Last Change : 2024/04/07 16:07:19.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -46,10 +46,6 @@ struct Cli {
     /// Sets a custom config file
     #[arg(short, long, value_name = "FILE", default_value = "spyrun.toml")]
     config: PathBuf,
-
-    /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    debug: u8,
 }
 
 #[tracing::instrument]
