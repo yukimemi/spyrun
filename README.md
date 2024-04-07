@@ -1,4 +1,4 @@
-# spyrun - File/Directory Watcher and Command Executor
+# spyrun - file Watcher and Command Executor
 
 spyrun is a tool that watches files and executes commands when specific events occur.
 It can watch for file modifications, additions, and more.
