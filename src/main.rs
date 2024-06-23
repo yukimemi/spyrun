@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/04/07 16:07:19.
+// Last Change : 2024/06/22 20:58:32.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -16,6 +16,8 @@ mod util;
 use std::{
     collections::HashMap,
     env,
+    fs::File,
+    io::Write,
     path::{Path, PathBuf},
     sync::{mpsc, Arc, Mutex},
     thread,
@@ -185,12 +187,18 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     debug!("{:?}", &cli);
 
+    let error_log_path =
+        Path::new(context.get("cmd_dir").unwrap().as_str().unwrap()).join("error.log");
+
     let mut load_error = String::new();
     let settings = Settings::new(&cli.config, true, &mut context);
     let settings = match settings {
         Ok(s) => s.rebuild(),
         Err(e) => {
             load_error = format!("Failed to load toml. so use backup file. {}", e);
+            let mut error_file = File::create(error_log_path)?;
+            writeln!(error_file, "{}", load_error)?;
+            error_file.flush()?;
             let backup_cfg_path = Settings::backup_path(&cli.config);
             Settings::new(backup_cfg_path, false, &mut context)?.rebuild()
         }

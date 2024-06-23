@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/04/07 11:22:39.
+// Last Change : 2024/06/22 21:09:24.
 // =============================================================================
 
 use std::{
@@ -96,14 +96,19 @@ pub fn insert_default_context(context: &mut Context) {
 pub fn render_vars(context: &mut Context, toml_str: &str) -> Result<()> {
     let toml_value: toml::Value = toml::from_str(toml_str)?;
     if let Some(vars) = toml_value.get("vars") {
-        vars.as_table().unwrap().iter().for_each(|(k, v)| {
-            let mut tera = new_tera("key", k).unwrap();
-            let k = tera.render_str(k, context).unwrap();
-            let v_str = v.as_str().unwrap();
-            let mut tera = new_tera("value", v_str).unwrap();
-            let v = tera.render_str(v_str, context).unwrap();
-            context.insert(k, &v);
-        })
+        let table = vars
+            .as_table()
+            .ok_or_else(|| anyhow::Error::msg("Expected a table for 'vars'"))?;
+        for (k, v) in table.iter() {
+            let mut tera_key = new_tera("key", k)?;
+            let rendered_key = tera_key.render_str(k, context)?;
+            let v_str = v
+                .as_str()
+                .ok_or_else(|| anyhow::Error::msg("Expected a string for 'value'"))?;
+            let mut tera_value = new_tera("value", v_str)?;
+            let rendered_value = tera_value.render_str(v_str, context)?;
+            context.insert(rendered_key, &rendered_value);
+        }
     }
     Ok(())
 }
