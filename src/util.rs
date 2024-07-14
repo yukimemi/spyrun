@@ -1,13 +1,16 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/06/22 21:09:24.
+// Last Change : 2024/07/11 15:37:12.
 // =============================================================================
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::{
     collections::HashMap,
     env,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use aead::generic_array::GenericArray;
@@ -20,10 +23,52 @@ use base64::{engine::general_purpose, Engine as _};
 use log_derive::logfn;
 use path_slash::{PathBufExt as _, PathExt as _};
 use tera::{Context, Tera, Value};
-use tracing::trace;
+use tracing::{debug, trace};
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 const KEY: &[u8; 32] = b"an example very very secret key.";
 const NONCE: &[u8; 12] = b"unique nonce";
+
+#[logfn(Debug)]
+pub fn powershell(script: &str) -> Result<String, String> {
+    let script = format!(
+        "& {{ chcp 65001 | Out-Null; [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding('utf-8'); {} }}",
+        &script
+    );
+    debug!("{:?}", &script);
+
+    #[cfg(windows)]
+    let output = Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
+        .arg("-NoProfile")
+        .arg("-WindowStyle")
+        .arg("Hidden")
+        .arg("-ExecutionPolicy")
+        .arg("ByPass")
+        .arg("-Command")
+        .arg(&script)
+        .output()
+        .expect("failed to execute process !");
+
+    #[cfg(not(windows))]
+    let output = Command::new("pwsh")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("ByPass")
+        .arg("-Command")
+        .arg(&script)
+        .output()
+        .expect("failed to execute process !");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    debug!(
+        "status: {:?}, stdout: {:?}, stderr: {:?}",
+        &output.status, &stdout, &stderr
+    );
+    Ok(stdout.trim().to_string())
+}
 
 #[logfn(Debug)]
 pub fn insert_file_context<P: AsRef<Path>>(
@@ -120,6 +165,7 @@ pub fn new_tera(name: &str, content: &str) -> Result<Tera> {
     tera.register_function("env", env_function);
     tera.register_function("enc", enc_function);
     tera.register_function("dec", dec_function);
+    tera.register_function("ps", powershell_function);
     Ok(tera)
 }
 
@@ -165,6 +211,19 @@ fn dec_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
     let plaintext = cipher.decrypt(nonce, bytes.as_ref()).unwrap();
 
     Ok(Value::String(String::from_utf8(plaintext).unwrap()))
+}
+
+#[logfn(Trace)]
+fn powershell_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
+    let arg = args
+        .get("arg")
+        .ok_or_else(|| tera::Error::msg("arg is required"))?
+        .as_str()
+        .unwrap();
+
+    let stdout = powershell(arg)?;
+
+    Ok(Value::String(stdout))
 }
 
 #[cfg(test)]
