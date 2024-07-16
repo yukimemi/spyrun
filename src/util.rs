@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/07/11 15:37:12.
+// Last Change : 2024/07/14 23:54:31.
 // =============================================================================
 
 #[cfg(windows)]
@@ -163,6 +163,7 @@ pub fn new_tera(name: &str, content: &str) -> Result<Tera> {
     let mut tera = Tera::default();
     tera.add_raw_template(name, content)?;
     tera.register_function("env", env_function);
+    tera.register_function("setenv", setenv_function);
     tera.register_function("enc", enc_function);
     tera.register_function("dec", dec_function);
     tera.register_function("ps", powershell_function);
@@ -177,6 +178,16 @@ fn env_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
         .as_str()
         .unwrap();
     Ok(Value::String(env::var(arg).unwrap_or_default()))
+}
+
+fn setenv_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
+    if let (Some(key), Some(value)) = (args.get("key"), args.get("value")) {
+        if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
+            env::set_var(key_str, value_str);
+            return Ok(Value::String(format!("Set {} to {}", key_str, value_str)));
+        }
+    }
+    Err("Invalid arguments".into())
 }
 
 #[logfn(Trace)]
