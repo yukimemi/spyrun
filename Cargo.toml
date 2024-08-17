@@ -2,6 +2,9 @@
 name = "spyrun"
 version = "1.0.1"
 edition = "2021"
+authors = ["yukimemi <yukimemi@gmail.com>"]
+description = "File watcher and command executor"
+license = "MIT"
 
 [dependencies]
 aead = "0.5.2"
