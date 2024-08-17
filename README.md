@@ -6,7 +6,7 @@ It can watch for file modifications, additions, and more.
 # Installation
 
 ```
-cargo install --git https://github.com/yukimemi/spyrun
+cargo install spyrun
 ```
 
 # Usage
