@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/07/14 23:54:31.
+// Last Change : 2024/09/14 23:21:42.
 // =============================================================================
 
 #[cfg(windows)]
@@ -58,6 +58,40 @@ pub fn powershell(script: &str) -> Result<String, String> {
         .arg("ByPass")
         .arg("-Command")
         .arg(&script)
+        .output()
+        .expect("failed to execute process !");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    debug!(
+        "status: {:?}, stdout: {:?}, stderr: {:?}",
+        &output.status, &stdout, &stderr
+    );
+    Ok(stdout.trim().to_string())
+}
+
+#[logfn(Debug)]
+pub fn powershell_file(script_path: &str) -> Result<String, String> {
+    #[cfg(windows)]
+    let output = Command::new("powershell")
+        .creation_flags(CREATE_NO_WINDOW)
+        .arg("-NoProfile")
+        .arg("-WindowStyle")
+        .arg("Hidden")
+        .arg("-ExecutionPolicy")
+        .arg("ByPass")
+        .arg("-File")
+        .arg(script_path)
+        .output()
+        .expect("failed to execute process !");
+
+    #[cfg(not(windows))]
+    let output = Command::new("pwsh")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("ByPass")
+        .arg("-File")
+        .arg(script_path)
         .output()
         .expect("failed to execute process !");
 
@@ -167,6 +201,7 @@ pub fn new_tera(name: &str, content: &str) -> Result<Tera> {
     tera.register_function("enc", enc_function);
     tera.register_function("dec", dec_function);
     tera.register_function("ps", powershell_function);
+    tera.register_function("psf", powershell_file_function);
     Ok(tera)
 }
 
@@ -233,6 +268,19 @@ fn powershell_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
         .unwrap();
 
     let stdout = powershell(arg)?;
+
+    Ok(Value::String(stdout))
+}
+
+#[logfn(Trace)]
+fn powershell_file_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
+    let arg = args
+        .get("arg")
+        .ok_or_else(|| tera::Error::msg("arg is required"))?
+        .as_str()
+        .unwrap();
+
+    let stdout = powershell_file(arg)?;
 
     Ok(Value::String(stdout))
 }

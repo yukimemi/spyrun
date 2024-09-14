@@ -1,6 +1,6 @@
 [package]
 name = "spyrun"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 authors = ["yukimemi <yukimemi@gmail.com>"]
 description = "File watcher and command executor"
@@ -10,10 +10,10 @@ license = "MIT"
 [dependencies]
 aead = "0.5.2"
 aes-gcm-siv = "0.11.1"
-anyhow = "1.0.86"
+anyhow = "1.0.88"
 base64 = "0.22.1"
 chrono = "0.4.38"
-clap = { version = "4.5.16", features = ["derive", "env", "cargo", "unicode"] }
+clap = { version = "4.5.17", features = ["derive", "env", "cargo", "unicode"] }
 crypto-hash = "0.3.4"
 go-defer = "0.1.0"
 log = "0.4.22"
@@ -24,7 +24,7 @@ path-slash = "0.2.1"
 rand = "0.8.5"
 rayon = "1.10.0"
 regex = "1.10.6"
-serde = { version = "1.0.208", features = ["derive"] }
+serde = { version = "1.0.210", features = ["derive"] }
 single-instance = "0.3.3"
 tera = "1.20.0"
 time = { version = "0.3.36", features = ["macros", "local-offset"] }
