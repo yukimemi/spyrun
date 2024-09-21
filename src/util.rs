@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/09/14 23:21:42.
+// Last Change : 2024/09/15 11:11:57.
 // =============================================================================
 
 #[cfg(windows)]
@@ -21,6 +21,7 @@ use aes_gcm_siv::{
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
 use log_derive::logfn;
+use normpath::PathExt;
 use path_slash::{PathBufExt as _, PathExt as _};
 use tera::{Context, Tera, Value};
 use tracing::{debug, trace};
@@ -115,6 +116,9 @@ pub fn insert_file_context<P: AsRef<Path>>(
     if p.is_relative() {
         p = std::env::current_dir()?.join(p);
     }
+    let normpath = p.normalize_virtually()?;
+    trace!("normpath: {:?}", normpath);
+    let p = PathBuf::from(normpath);
     context.insert(format!("{}_path", &prefix), &p.to_slash_lossy());
     context.insert(
         format!("{}_dir", &prefix),
