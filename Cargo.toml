@@ -1,6 +1,6 @@
 [package]
 name = "spyrun"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 authors = ["yukimemi <yukimemi@gmail.com>"]
 description = "File watcher and command executor"
