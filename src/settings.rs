@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2024/04/06 14:06:22.
+// Last Change : 2024/10/11 14:59:49.
 // =============================================================================
 
 use std::{
@@ -108,10 +108,7 @@ impl Settings {
                 }
                 Ok(s)
             }
-            Err(e) => {
-                error!("Failed to parse settings.toml. {:?}", e);
-                Err(anyhow!("Failed to parse settings.toml."))
-            }
+            Err(e) => Err(anyhow!("Failed to parse settings.toml. {:?}", e)),
         }
     }
 
