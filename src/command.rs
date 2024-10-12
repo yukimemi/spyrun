@@ -1,11 +1,12 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2024/04/06 14:49:55.
+// Last Change : 2024/10/12 13:13:29.
 // =============================================================================
 
 use std::{
     collections::HashMap,
+    fmt,
     fs::{create_dir_all, OpenOptions},
     path::PathBuf,
     process::{Command, ExitStatus},
@@ -23,13 +24,20 @@ use tracing::{debug, info, warn};
 use crate::util::{insert_file_context, new_tera};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-pub struct CommandKey {
+pub struct CommandInfo {
     name: String,
     event_path: PathBuf,
     cmd: String,
     arg: Vec<String>,
     input: String,
     output: String,
+}
+
+impl fmt::Display for CommandInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CommandInfo {{ name: {}, event_path: {:?}, cmd: {}, arg: {:?}, input: {}, output: {} }}",
+            self.name, self.event_path, self.cmd, self.arg, self.input, self.output)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -42,16 +50,16 @@ pub struct CommandResult {
 
 #[tracing::instrument]
 #[logfn(Trace)]
-pub fn render_command(key: CommandKey, context: Context) -> Result<CommandKey> {
+pub fn render_command(cmd_info: CommandInfo, context: Context) -> Result<CommandInfo> {
     let mut context = context.clone();
-    insert_file_context(&key.event_path, "event", &mut context).unwrap();
-    let tera = new_tera("spy_name", &key.name)?;
+    insert_file_context(&cmd_info.event_path, "event", &mut context).unwrap();
+    let tera = new_tera("spy_name", &cmd_info.name)?;
     let spy_name = tera.render("spy_name", &context)?;
     context.insert("spy_name", &spy_name);
-    let tera = new_tera("cmd", &key.cmd)?;
+    let tera = new_tera("cmd", &cmd_info.cmd)?;
     let cmd = tera.render("cmd", &context)?;
     context.insert("cmd", &cmd);
-    let arg = &key
+    let arg = &cmd_info
         .arg
         .iter()
         .map(|s| {
@@ -60,17 +68,17 @@ pub fn render_command(key: CommandKey, context: Context) -> Result<CommandKey> {
         })
         .collect::<Vec<_>>();
     context.insert("arg", &arg.join(" "));
-    let tera = new_tera("input", &key.input)?;
+    let tera = new_tera("input", &cmd_info.input)?;
     let input = tera.render("input", &context)?;
     context.insert("input", &input);
-    let tera = new_tera("output", &key.output)?;
+    let tera = new_tera("output", &cmd_info.output)?;
     let output = tera.render("output", &context)?;
     context.insert("output", &output);
     create_dir_all(&output)?;
 
-    Ok(CommandKey {
-        name: key.name,
-        event_path: key.event_path,
+    Ok(CommandInfo {
+        name: cmd_info.name,
+        event_path: cmd_info.event_path,
         cmd,
         arg: arg.to_vec(),
         input,
@@ -81,25 +89,25 @@ pub fn render_command(key: CommandKey, context: Context) -> Result<CommandKey> {
 #[tracing::instrument]
 #[logfn(Trace)]
 pub fn debounce_command(
-    key: CommandKey,
+    cmd_info: CommandInfo,
     threshold: Duration,
+    limitkey: &str,
     context: Context,
-    cache: &Arc<Mutex<HashMap<CommandKey, Instant>>>,
+    cache: &Arc<Mutex<HashMap<String, Instant>>>,
 ) -> Result<CommandResult> {
     let now = Instant::now();
     let mut lock = cache.lock().unwrap();
-    lock.insert(key.clone(), now);
+    lock.insert(limitkey.to_string(), now);
     drop(lock);
 
     thread::sleep(threshold);
 
     let lock = cache.lock().unwrap();
-    let executed = lock.get(&key).unwrap();
+    let executed = lock.get(limitkey).unwrap();
     if executed > &now {
         debug!(
-            "Debounce ! Skip execute cmd: {}, arg: {}",
-            key.cmd,
-            key.arg.join(" ")
+            "Debounce ! Skip execute limitkey: {}",
+            &limitkey.to_string(),
         );
         return Ok(CommandResult {
             status: ExitStatus::default(),
@@ -110,27 +118,27 @@ pub fn debounce_command(
     }
     drop(lock);
 
-    exec(key)
+    exec(cmd_info)
 }
 
 #[tracing::instrument]
 #[logfn(Trace)]
 pub fn throttle_command(
-    key: CommandKey,
+    cmd_info: CommandInfo,
     threshold: Duration,
+    limitkey: &str,
     context: Context,
-    cache: &Arc<Mutex<HashMap<CommandKey, Instant>>>,
+    cache: &Arc<Mutex<HashMap<String, Instant>>>,
 ) -> Result<CommandResult> {
     let now = Instant::now();
     let mut lock = cache.lock().unwrap();
-    let executed = lock.get(&key);
+    let executed = lock.get(limitkey);
     if let Some(executed) = executed {
         if now.duration_since(*executed) < threshold {
             drop(lock);
             debug!(
-                "Throttle ! Skip execute cmd: {}, arg: {}",
-                key.cmd,
-                key.arg.join(" ")
+                "Throttle ! Skip execute limitkey: {}",
+                &limitkey.to_string(),
             );
             return Ok(CommandResult {
                 status: ExitStatus::default(),
@@ -140,18 +148,20 @@ pub fn throttle_command(
             });
         }
     }
-    lock.insert(key.clone(), now);
+    lock.insert(limitkey.to_string(), now);
     drop(lock);
 
-    exec(key)
+    exec(cmd_info)
 }
 
 #[tracing::instrument]
 #[logfn(Debug)]
-pub fn exec(key: CommandKey) -> Result<CommandResult> {
+pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
-    let stdout_path = PathBuf::from(&key.output).join(format!("{}_stdout_{}.log", &key.name, now));
-    let stderr_path = PathBuf::from(&key.output).join(format!("{}_stderr_{}.log", &key.name, now));
+    let stdout_path =
+        PathBuf::from(&cmd_info.output).join(format!("{}_stdout_{}.log", &cmd_info.name, now));
+    let stderr_path =
+        PathBuf::from(&cmd_info.output).join(format!("{}_stderr_{}.log", &cmd_info.name, now));
     let stdout_file = OpenOptions::new()
         .append(true)
         .create(true)
@@ -162,14 +172,14 @@ pub fn exec(key: CommandKey) -> Result<CommandResult> {
         .open(&stderr_path)?;
     info!(
         "Execute cmd: {}, arg: {}, stdout: {}, stderr: {}",
-        &key.cmd,
-        &key.arg.join(" "),
+        &cmd_info.cmd,
+        &cmd_info.arg.join(" "),
         stdout_path.display(),
         stderr_path.display()
     );
     Ok(CommandResult {
-        status: Command::new(&key.cmd)
-            .args(&key.arg)
+        status: Command::new(&cmd_info.cmd)
+            .args(&cmd_info.arg)
             .stdout(stdout_file)
             .stderr(stderr_file)
             .spawn()?
@@ -191,11 +201,12 @@ pub fn execute_command(
     arg: Vec<String>,
     debounce: Duration,
     throttle: Duration,
+    limitkey: &str,
     context: Context,
-    cache: &Arc<Mutex<HashMap<CommandKey, Instant>>>,
+    cache: &Arc<Mutex<HashMap<String, Instant>>>,
 ) -> Result<CommandResult> {
-    let command_key = render_command(
-        CommandKey {
+    let cmd_info = render_command(
+        CommandInfo {
             name: name.to_string(),
             event_path: event_path.clone(),
             cmd: cmd.to_string(),
@@ -206,12 +217,20 @@ pub fn execute_command(
         context.clone(),
     )?;
     if debounce > Duration::from_millis(0) {
-        return debounce_command(command_key, debounce, context.clone(), cache);
+        if limitkey.is_empty() {
+            let limitkey = cmd_info.to_string();
+            return debounce_command(cmd_info, debounce, &limitkey, context.clone(), cache);
+        }
+        return debounce_command(cmd_info, debounce, limitkey, context.clone(), cache);
     }
     if throttle > Duration::from_millis(0) {
-        return throttle_command(command_key, throttle, context.clone(), cache);
+        if limitkey.is_empty() {
+            let limitkey = cmd_info.to_string();
+            return throttle_command(cmd_info, throttle, &limitkey, context.clone(), cache);
+        }
+        return throttle_command(cmd_info, throttle, limitkey, context.clone(), cache);
     }
-    panic!("`debounce` or `throttle` must set !");
+    panic!("`debounce` or `throttle` must set ! (one must be greater than 0)");
 }
 
 #[cfg(test)]
@@ -262,6 +281,7 @@ mod tests {
                     arg,
                     Duration::from_millis(0),
                     throttle,
+                    "",
                     context,
                     &cache,
                 )
@@ -326,6 +346,7 @@ mod tests {
                     arg,
                     Duration::from_millis(0),
                     throttle,
+                    "",
                     context,
                     &cache,
                 )

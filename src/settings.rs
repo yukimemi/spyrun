@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2024/10/11 14:59:49.
+// Last Change : 2024/10/12 12:11:44.
 // =============================================================================
 
 use std::{
@@ -54,6 +54,7 @@ pub struct Spy {
     pub recursive: RecursiveMode,
     pub throttle: Option<u64>,
     pub debounce: Option<u64>,
+    pub limitkey: Option<String>,
     pub patterns: Option<Vec<Pattern>>,
     pub delay: Option<(u64, Option<u64>)>,
     pub poll: Option<Poll>,
@@ -137,6 +138,7 @@ impl Settings {
                         recursive: spy.recursive,
                         throttle: spy.throttle.or(default_spy.throttle),
                         debounce: spy.debounce.or(default_spy.debounce),
+                        limitkey: spy.limitkey.clone().or(default_spy.limitkey.clone()),
                         patterns: spy.patterns.clone().or(default_spy.patterns.clone()),
                         delay: spy.delay.or(default_spy.delay),
                         poll: spy.poll.clone().or(default_spy.poll.clone()),
@@ -187,6 +189,7 @@ impl Default for Spy {
             recursive: RecursiveMode::Recursive,
             throttle: Some(0),
             debounce: Some(50),
+            limitkey: Some("".to_string()),
             patterns: Some(vec![
                 Pattern {
                     pattern: "\\.ps1$".to_string(),

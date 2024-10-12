@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/10/11 14:30:12.
+// Last Change : 2024/10/12 13:08:16.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -156,6 +156,7 @@ fn watcher(
                                 pattern.arg,
                                 Duration::from_millis(spy.debounce.unwrap()),
                                 Duration::from_millis(spy.throttle.unwrap()),
+                                &spy.limitkey.unwrap(),
                                 context,
                                 &cache,
                             );
@@ -318,6 +319,7 @@ fn main() -> Result<()> {
             init.arg.clone(),
             Duration::from_secs(0),
             Duration::from_secs(1),
+            "",
             context.clone(),
             &Arc::new(Mutex::new(HashMap::new())),
         );

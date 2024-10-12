@@ -212,6 +212,11 @@ Default value is 50 milliseconds.
 If you want to throttle execution, set this setting.
 Default value is 0 milliseconds.
 
+### limitkey
+
+debounce or throttle is applied to this key.
+Default value is Display for CommandInfo.
+
 ### delay
 
 The delay to wait before executing the command.
