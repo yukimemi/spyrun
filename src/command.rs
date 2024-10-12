@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2024/10/12 13:13:29.
+// Last Change : 2024/10/12 14:06:30.
 // =============================================================================
 
 use std::{
@@ -216,19 +216,21 @@ pub fn execute_command(
         },
         context.clone(),
     )?;
+    let tera = new_tera("limitkey", limitkey)?;
+    let limitkey = tera.render("limitkey", &context)?;
     if debounce > Duration::from_millis(0) {
         if limitkey.is_empty() {
             let limitkey = cmd_info.to_string();
             return debounce_command(cmd_info, debounce, &limitkey, context.clone(), cache);
         }
-        return debounce_command(cmd_info, debounce, limitkey, context.clone(), cache);
+        return debounce_command(cmd_info, debounce, &limitkey, context.clone(), cache);
     }
     if throttle > Duration::from_millis(0) {
         if limitkey.is_empty() {
             let limitkey = cmd_info.to_string();
             return throttle_command(cmd_info, throttle, &limitkey, context.clone(), cache);
         }
-        return throttle_command(cmd_info, throttle, limitkey, context.clone(), cache);
+        return throttle_command(cmd_info, throttle, &limitkey, context.clone(), cache);
     }
     panic!("`debounce` or `throttle` must set ! (one must be greater than 0)");
 }
