@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2024/10/12 14:06:30.
+// Last Change : 2024/12/07 19:42:22.
 // =============================================================================
 
 use std::{
@@ -348,6 +348,134 @@ mod tests {
                     arg,
                     Duration::from_millis(0),
                     throttle,
+                    "",
+                    context,
+                    &cache,
+                )
+                .unwrap();
+                assert_eq!(result.status.code(), Some(0));
+                assert_ne!(result.stdout.to_str().unwrap(), "");
+                assert_ne!(result.stderr.to_str().unwrap(), "");
+                assert!(!result.skipped);
+            }));
+            thread::sleep(Duration::from_millis(200));
+        }
+        handles.into_iter().for_each(|h| h.join().unwrap());
+
+        let end = Instant::now();
+        let duration = end.duration_since(start);
+        assert!(duration < Duration::from_secs(6));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_execute_command_with_debounce() -> Result<()> {
+        let tmp = env::current_dir()?.join("test");
+        let event_path = PathBuf::from("event");
+        let name = "test";
+        let input = "input";
+        let output = tmp.join("test_execute_command");
+        #[cfg(windows)]
+        let cmd = "cmd";
+        #[cfg(not(windows))]
+        let cmd = "/bin/sh";
+        #[cfg(windows)]
+        let arg = vec!["/c", "echo", "test_execute_command"]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        #[cfg(not(windows))]
+        let arg = vec!["-c", "echo", "test_execute_command"]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        let debounce = Duration::from_millis(500);
+        let context = Context::new();
+        let cache = Arc::new(Mutex::new(HashMap::new()));
+
+        let mut handles = vec![];
+        for i in 0..3 {
+            let cache = cache.clone();
+            let event_path = event_path.clone();
+            let arg = arg.clone();
+            let context = context.clone();
+            let output = output.clone();
+            handles.push(thread::spawn(move || {
+                let result = execute_command(
+                    &event_path,
+                    name,
+                    input,
+                    output.to_str().unwrap(),
+                    cmd,
+                    arg,
+                    debounce,
+                    Duration::from_millis(0),
+                    "",
+                    context,
+                    &cache,
+                )
+                .unwrap();
+                if i == 0 || i == 1 {
+                    assert_eq!(result.status.code(), Some(0));
+                    assert_eq!(result.stdout.to_str().unwrap(), "");
+                    assert_eq!(result.stderr.to_str().unwrap(), "");
+                    assert!(result.skipped);
+                } else {
+                    assert_eq!(result.status.code(), Some(0));
+                    assert_ne!(result.stdout.to_str().unwrap(), "");
+                    assert_ne!(result.stderr.to_str().unwrap(), "");
+                    assert!(!result.skipped);
+                }
+            }));
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        handles.into_iter().for_each(|h| h.join().unwrap());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_execute_long_command_with_debounce() -> Result<()> {
+        let tmp = env::current_dir()?.join("test");
+        let event_path = PathBuf::from("event");
+        let name = "test";
+        let input = "input";
+        let output = tmp.join("test_execute_command");
+        #[cfg(windows)]
+        let cmd = "cmd";
+        #[cfg(not(windows))]
+        let cmd = "sleep";
+        #[cfg(windows)]
+        let arg = vec!["/c", "timeout", "/t", "3"]
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
+        #[cfg(not(windows))]
+        let arg = vec!["3"].into_iter().map(String::from).collect::<Vec<_>>();
+        let debounce = Duration::from_millis(100);
+        let context = Context::new();
+        let cache = Arc::new(Mutex::new(HashMap::new()));
+
+        let mut handles = vec![];
+        let start = Instant::now();
+        for _ in 0..3 {
+            let cache = cache.clone();
+            let event_path = event_path.clone();
+            let arg = arg.clone();
+            let context = context.clone();
+            let output = output.clone();
+            handles.push(thread::spawn(move || {
+                let result = execute_command(
+                    &event_path,
+                    name,
+                    input,
+                    output.to_str().unwrap(),
+                    cmd,
+                    arg,
+                    debounce,
+                    Duration::from_millis(0),
                     "",
                     context,
                     &cache,
