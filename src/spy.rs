@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2024/04/06 14:51:27.
+// Last Change : 2024/12/22 17:41:51.
 // =============================================================================
 
 use std::{
@@ -143,7 +143,7 @@ impl Spy {
                     debug!("[{}] re: [{:?}]", &spy.name, &re);
                     walker
                         .filter_map(|e| e.ok())
-                        .filter(|e| e.path().to_str().map_or(false, |s| re.is_match(s)))
+                        .filter(|e| e.path().to_str().is_some_and(|s| re.is_match(s)))
                         .for_each(|e| {
                             tx.send(Message::Event(Event {
                                 kind: event_kind,

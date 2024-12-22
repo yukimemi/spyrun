@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/09/22 22:55:29.
+// Last Change : 2024/12/22 23:59:37.
 // =============================================================================
 
 #[cfg(windows)]
@@ -124,9 +124,11 @@ pub fn insert_file_context<P: AsRef<Path>>(
     #[cfg(windows)]
     let p = PathBuf::from(normpath);
     context.insert(format!("{}_path", &prefix), &p.to_slash_lossy());
+    // context.insert(format!("{}_path", &prefix), &p.to_string_lossy());
     context.insert(
         format!("{}_dir", &prefix),
         &p.parent().unwrap().to_slash_lossy(),
+        // &p.parent().unwrap().to_string_lossy(),
     );
     context.insert(
         format!("{}_dirname", &prefix),

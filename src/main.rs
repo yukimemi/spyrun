@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/10/12 13:08:16.
+// Last Change : 2024/12/23 00:00:24.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -61,6 +61,7 @@ fn build_cmd_map() -> Result<Context> {
     context.insert("cmd_line", &env::args().collect::<Vec<String>>().join(" "));
     context.insert("now", &Local::now().format("%Y%m%d%H%M%S%3f").to_string());
     context.insert("cwd", &env::current_dir()?.to_slash_lossy());
+    // context.insert("cwd", &env::current_dir()?);
 
     insert_file_context(&cmd_file, "cmd", &mut context)?;
 
@@ -121,7 +122,14 @@ fn watcher(
             let handle = spy.walk(tx_clone.clone()).unwrap();
             handle.join().unwrap();
         }
-        let _watcher = spy.watch(tx_clone);
+        match spy.watch(tx_clone) {
+            Ok(_) => info!("[watcher] watch ok: {}", &spy.name),
+            Err(e) => {
+                error!("[watcher] watch error: {}, e: {:?}", &spy.name, e);
+                drop(tx_execute);
+                return format!("watch error: {}, e: {:?}", &spy.name, e);
+            }
+        }
         let spy_clone = spy.clone();
         let handle_execute_wait = thread::spawn(move || {
             rx_execute.into_iter().for_each(|status| {
@@ -200,6 +208,7 @@ fn main() -> Result<()> {
             let mut error_file = File::create(error_log_path)?;
             writeln!(error_file, "{}", load_error)?;
             error_file.flush()?;
+            println!("{}", load_error);
             let backup_cfg_path = Settings::backup_path(&cli.config);
             Settings::new(backup_cfg_path, false, &mut context)?.rebuild()
         }
