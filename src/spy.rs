@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2024/12/22 17:41:51.
+// Last Change : 2025/03/02 22:27:13.
 // =============================================================================
 
 use std::{
@@ -15,8 +15,9 @@ use anyhow::Result;
 use log_derive::logfn;
 use normalize_path::NormalizePath;
 use notify::{
+    Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
     event::{AccessKind, CreateKind, EventAttributes, ModifyKind, RemoveKind},
-    recommended_watcher, Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
+    recommended_watcher,
 };
 use rand::Rng;
 use regex::Regex;
@@ -87,8 +88,8 @@ impl Spy {
                 thread::sleep(Duration::from_millis(min));
             } else {
                 let max = max.unwrap();
-                let mut rng = rand::thread_rng();
-                let wait = rng.gen_range(min..=max);
+                let mut rng = rand::rng();
+                let wait = rng.random_range(min..=max);
                 thread::sleep(Duration::from_millis(wait));
             }
         }
@@ -181,7 +182,7 @@ impl Spy {
 mod tests {
     use std::{
         env,
-        fs::{create_dir_all, remove_dir_all, File},
+        fs::{File, create_dir_all, remove_dir_all},
         sync::mpsc,
         time::Duration,
     };

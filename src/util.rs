@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2024/12/22 23:59:37.
+// Last Change : 2025/03/02 22:24:00.
 // =============================================================================
 
 #[cfg(windows)]
@@ -15,11 +15,11 @@ use std::{
 
 use aead::generic_array::GenericArray;
 use aes_gcm_siv::{
-    aead::{Aead, KeyInit},
     Aes256GcmSiv, Nonce,
+    aead::{Aead, KeyInit},
 };
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use log_derive::logfn;
 #[cfg(windows)]
 use normpath::PathExt;
@@ -228,7 +228,9 @@ fn env_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
 fn setenv_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
     if let (Some(key), Some(value)) = (args.get("key"), args.get("value")) {
         if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
-            env::set_var(key_str, value_str);
+            unsafe {
+                env::set_var(key_str, value_str);
+            }
             return Ok(Value::String(format!("Set {} to {}", key_str, value_str)));
         }
     }
@@ -304,12 +306,18 @@ mod tests {
 
     #[test]
     fn test_enc_dec() -> Result<()> {
-        let tera = new_tera("template", "The encrypted text of {{ name }} is {{ enc(arg='Alice') }}\nThe decrypted text of {{ enc(arg='Alice') }} is {{ dec(arg=enc(arg='Alice')) }}")?;
+        let tera = new_tera(
+            "template",
+            "The encrypted text of {{ name }} is {{ enc(arg='Alice') }}\nThe decrypted text of {{ enc(arg='Alice') }} is {{ dec(arg=enc(arg='Alice')) }}",
+        )?;
         let mut context = Context::new();
         context.insert("name", "Alice");
         let result = tera.render("template", &context).unwrap();
 
-        assert_eq!(result, "The encrypted text of Alice is EzB4qO+2K66gKXPBNRl7owf4EGpo\nThe decrypted text of EzB4qO+2K66gKXPBNRl7owf4EGpo is Alice");
+        assert_eq!(
+            result,
+            "The encrypted text of Alice is EzB4qO+2K66gKXPBNRl7owf4EGpo\nThe decrypted text of EzB4qO+2K66gKXPBNRl7owf4EGpo is Alice"
+        );
         Ok(())
     }
 }

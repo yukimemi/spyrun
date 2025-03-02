@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/12/23 09:26:54.
+// Last Change : 2025/03/02 21:40:48.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -19,16 +19,16 @@ use std::{
     fs::File,
     io::Write,
     path::{Path, PathBuf},
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::Duration,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use chrono::Local;
 use clap::Parser;
 use command::execute_command;
-use crypto_hash::{hex_digest, Algorithm};
+use crypto_hash::{Algorithm, hex_digest};
 use go_defer::defer;
 use log_derive::logfn;
 use message::Message;
@@ -61,7 +61,6 @@ fn build_cmd_map() -> Result<Context> {
     context.insert("cmd_line", &env::args().collect::<Vec<String>>().join(" "));
     context.insert("now", &Local::now().format("%Y%m%d%H%M%S%3f").to_string());
     context.insert("cwd", &env::current_dir()?.to_slash_lossy());
-    // context.insert("cwd", &env::current_dir()?);
 
     insert_file_context(&cmd_file, "cmd", &mut context)?;
 

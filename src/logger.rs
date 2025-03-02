@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2024/04/06 14:04:12.
+// Last Change : 2025/03/02 22:10:33.
 // =============================================================================
 
 use std::{
@@ -13,13 +13,12 @@ use std::{
 use anyhow::Result;
 use chrono::Local;
 use tera::Context;
-use time::UtcOffset;
 use tracing_appender::non_blocking;
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    fmt::{time::OffsetTime, writer::BoxMakeWriter, Layer},
-    prelude::*,
     EnvFilter, Registry,
+    fmt::{Layer, time::ChronoLocal, writer::BoxMakeWriter},
+    prelude::*,
 };
 
 use super::{settings::Settings, util::insert_file_context};
@@ -63,11 +62,7 @@ pub fn init(
         }
     }
 
-    let time_format = time::format_description::well_known::Iso8601::DEFAULT;
-    // let timer = LocalTime::new(time_format); // issues: https://github.com/tokio-rs/tracing/issues/2715
-    let offset = UtcOffset::from_hms(9, 0, 0).unwrap();
-    let timer = OffsetTime::new(offset, time_format);
-
+    let timer = ChronoLocal::new("%+".to_string());
     let file_appender = non_blocking(tracing_appender::rolling::daily(log_dir, log_name));
     let stdout_appender = non_blocking(std::io::stdout());
 

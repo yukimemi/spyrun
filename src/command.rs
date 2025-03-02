@@ -7,7 +7,7 @@
 use std::{
     collections::HashMap,
     fmt,
-    fs::{create_dir_all, OpenOptions},
+    fs::{OpenOptions, create_dir_all},
     path::PathBuf,
     process::{Command, ExitStatus},
     sync::{Arc, Mutex},
@@ -35,8 +35,11 @@ pub struct CommandInfo {
 
 impl fmt::Display for CommandInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CommandInfo {{ name: {}, event_path: {:?}, cmd: {}, arg: {:?}, input: {}, output: {} }}",
-            self.name, self.event_path, self.cmd, self.arg, self.input, self.output)
+        write!(
+            f,
+            "CommandInfo {{ name: {}, event_path: {:?}, cmd: {}, arg: {:?}, input: {}, output: {} }}",
+            self.name, self.event_path, self.cmd, self.arg, self.input, self.output
+        )
     }
 }
 

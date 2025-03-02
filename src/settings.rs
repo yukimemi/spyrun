@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log_derive::logfn;
 use notify::RecursiveMode;
 use serde::{Deserialize, Deserializer};
