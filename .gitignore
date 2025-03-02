@@ -27,3 +27,6 @@ out/
 out2/
 output/
 test/
+
+*_backup.toml
+log/

@@ -1,7 +1,7 @@
 # =============================================================================
 # File        : test.toml
 # Author      : yukimemi
-# Last Change : 2024/12/22 23:32:05.
+# Last Change : 2024/12/23 11:26:00.
 # =============================================================================
 
 [vars]
@@ -24,8 +24,8 @@ arg = ['-NoProfile', '-Command', '''& {
 name = 'test found dir'
 input = '{{ cfg_dir }}\test'
 output = '{{ log_dir }}\{{ spy_name }}'
-[spys.poll]
-interval = 10000
+# [spys.poll]
+# interval = 10000
 [[spys.patterns]]
 pattern = '.*'
 cmd = 'powershell'

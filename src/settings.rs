@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2024/10/12 12:11:44.
+// Last Change : 2024/10/15 00:19:51.
 // =============================================================================
 
 use std::{
@@ -188,7 +188,7 @@ impl Default for Spy {
             output: Some("output".to_string()),
             recursive: RecursiveMode::Recursive,
             throttle: Some(0),
-            debounce: Some(50),
+            debounce: Some(0),
             limitkey: Some("".to_string()),
             patterns: Some(vec![
                 Pattern {

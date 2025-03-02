@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2024/12/23 00:00:24.
+// Last Change : 2024/12/23 09:26:54.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -122,7 +122,8 @@ fn watcher(
             let handle = spy.walk(tx_clone.clone()).unwrap();
             handle.join().unwrap();
         }
-        match spy.watch(tx_clone) {
+        let watcher = spy.watch(tx_clone);
+        match watcher {
             Ok(_) => info!("[watcher] watch ok: {}", &spy.name),
             Err(e) => {
                 error!("[watcher] watch error: {}, e: {:?}", &spy.name, e);
