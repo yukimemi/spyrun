@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2024/12/07 19:42:22.
+// Last Change : 2025/03/02 23:10:43.
 // =============================================================================
 
 use std::{
@@ -19,7 +19,7 @@ use anyhow::Result;
 use chrono::Local;
 use log_derive::logfn;
 use tera::Context;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::util::{insert_file_context, new_tera};
 
@@ -173,7 +173,7 @@ pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
         .append(true)
         .create(true)
         .open(&stderr_path)?;
-    info!(
+    warn!(
         "Execute cmd: {}, arg: {}, stdout: {}, stderr: {}",
         &cmd_info.cmd,
         &cmd_info.arg.join(" "),

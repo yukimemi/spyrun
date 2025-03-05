@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2025/03/02 22:27:13.
+// Last Change : 2025/03/05 01:19:34.
 // =============================================================================
 
 use std::{
@@ -21,7 +21,7 @@ use notify::{
 };
 use rand::Rng;
 use regex::Regex;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 use walkdir::WalkDir;
 
 use crate::{message::Message, settings::Spy};
@@ -139,13 +139,14 @@ impl Spy {
         let handle = thread::spawn(move || {
             match walk.pattern {
                 Some(pattern) => {
-                    debug!("[{}] walk pattern: [{}]", &spy.name, &pattern);
+                    warn!("[{}] walk pattern: [{}]", &spy.name, &pattern);
                     let re = Regex::new(&pattern).unwrap();
                     debug!("[{}] re: [{:?}]", &spy.name, &re);
                     walker
                         .filter_map(|e| e.ok())
                         .filter(|e| e.path().to_str().is_some_and(|s| re.is_match(s)))
                         .for_each(|e| {
+                            warn!("walk paths: [{}]", &e.path().to_string_lossy());
                             tx.send(Message::Event(Event {
                                 kind: event_kind,
                                 paths: vec![e.path().to_path_buf()],

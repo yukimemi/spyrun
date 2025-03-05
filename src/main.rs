@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2025/03/02 21:40:48.
+// Last Change : 2025/03/06 00:29:25.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -153,7 +153,11 @@ fn watcher(
                         let cache = cache.clone();
                         let mut context = context.clone();
                         context.insert("event_kind", &event_kind);
-                        debug!("[{}] pattern: {:?}", &spy.name, pattern);
+                        // debug!("[{}] pattern: {:?}", &spy.name, pattern);
+                        warn!(
+                            "[{}] pattern: [{:?}], paths: [{:?}]",
+                            &spy.name, pattern, &event.paths
+                        );
                         rayon::spawn(move || {
                             let status = execute_command(
                                 event.paths.last().unwrap(),
