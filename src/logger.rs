@@ -16,9 +16,9 @@ use tera::Context;
 use tracing_appender::non_blocking;
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    EnvFilter, Registry,
-    fmt::{Layer, time::ChronoLocal, writer::BoxMakeWriter},
+    fmt::{time::ChronoLocal, writer::BoxMakeWriter, Layer},
     prelude::*,
+    EnvFilter, Registry,
 };
 
 use super::{settings::Settings, util::insert_file_context};

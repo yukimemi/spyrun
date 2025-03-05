@@ -19,16 +19,16 @@ use std::{
     fs::File,
     io::Write,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, mpsc},
+    sync::{mpsc, Arc, Mutex},
     thread,
     time::Duration,
 };
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use chrono::Local;
 use clap::Parser;
 use command::execute_command;
-use crypto_hash::{Algorithm, hex_digest};
+use crypto_hash::{hex_digest, Algorithm};
 use go_defer::defer;
 use log_derive::logfn;
 use message::Message;

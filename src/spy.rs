@@ -15,9 +15,8 @@ use anyhow::Result;
 use log_derive::logfn;
 use normalize_path::NormalizePath;
 use notify::{
-    Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
     event::{AccessKind, CreateKind, EventAttributes, ModifyKind, RemoveKind},
-    recommended_watcher,
+    recommended_watcher, Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
 };
 use rand::Rng;
 use regex::Regex;
@@ -183,7 +182,7 @@ impl Spy {
 mod tests {
     use std::{
         env,
-        fs::{File, create_dir_all, remove_dir_all},
+        fs::{create_dir_all, remove_dir_all, File},
         sync::mpsc,
         time::Duration,
     };

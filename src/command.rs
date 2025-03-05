@@ -7,7 +7,7 @@
 use std::{
     collections::HashMap,
     fmt,
-    fs::{OpenOptions, create_dir_all},
+    fs::{create_dir_all, OpenOptions},
     path::PathBuf,
     process::{Command, ExitStatus},
     sync::{Arc, Mutex},
