@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2024/10/15 00:19:51.
+// Last Change : 2025/03/09 00:32:04.
 // =============================================================================
 
 use std::{
@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log_derive::logfn;
 use notify::RecursiveMode;
 use serde::{Deserialize, Deserializer};

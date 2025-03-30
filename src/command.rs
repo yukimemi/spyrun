@@ -1,13 +1,13 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/03/02 23:10:43.
+// Last Change : 2025/03/09 00:32:34.
 // =============================================================================
 
 use std::{
     collections::HashMap,
     fmt,
-    fs::{create_dir_all, OpenOptions},
+    fs::{OpenOptions, create_dir_all},
     path::PathBuf,
     process::{Command, ExitStatus},
     sync::{Arc, Mutex},
@@ -19,7 +19,7 @@ use anyhow::Result;
 use chrono::Local;
 use log_derive::logfn;
 use tera::Context;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::util::{insert_file_context, new_tera};
 
@@ -27,6 +27,7 @@ use crate::util::{insert_file_context, new_tera};
 pub struct CommandInfo {
     name: String,
     event_path: PathBuf,
+    event_kind: String,
     cmd: String,
     arg: Vec<String>,
     input: String,
@@ -37,8 +38,14 @@ impl fmt::Display for CommandInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "CommandInfo {{ name: {}, event_path: {:?}, cmd: {}, arg: {:?}, input: {}, output: {} }}",
-            self.name, self.event_path, self.cmd, self.arg, self.input, self.output
+            "CommandInfo {{ name: {}, event_path: {:?}, event_kind: {}, cmd: {}, arg: {:?}, input: {}, output: {} }}",
+            self.name,
+            self.event_path,
+            self.event_kind,
+            self.cmd,
+            self.arg,
+            self.input,
+            self.output
         )
     }
 }
@@ -82,6 +89,7 @@ pub fn render_command(cmd_info: CommandInfo, context: Context) -> Result<Command
     Ok(CommandInfo {
         name: cmd_info.name,
         event_path: cmd_info.event_path,
+        event_kind: cmd_info.event_kind,
         cmd,
         arg: arg.to_vec(),
         input,
@@ -174,7 +182,7 @@ pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
         .create(true)
         .open(&stderr_path)?;
     warn!(
-        "Execute cmd: {}, arg: {}, stdout: {}, stderr: {}",
+        "[exec] cmd: {}, arg: {}, stdout: {}, stderr: {}",
         &cmd_info.cmd,
         &cmd_info.arg.join(" "),
         stdout_path.display(),
@@ -197,6 +205,7 @@ pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
 #[logfn(Trace)]
 pub fn execute_command(
     event_path: &PathBuf,
+    event_kind: &str,
     name: &str,
     input: &str,
     output: &str,
@@ -212,6 +221,7 @@ pub fn execute_command(
         CommandInfo {
             name: name.to_string(),
             event_path: event_path.clone(),
+            event_kind: event_kind.to_string(),
             cmd: cmd.to_string(),
             arg: arg.clone(),
             input: input.to_string(),
@@ -221,6 +231,11 @@ pub fn execute_command(
     )?;
     let tera = new_tera("limitkey", limitkey)?;
     let limitkey = tera.render("limitkey", &context)?;
+    info!(
+        "[execute_command] limitkey: [{}], cmd_info: [{}]",
+        &limitkey,
+        cmd_info.to_string()
+    );
     if debounce > Duration::from_millis(0) {
         if limitkey.is_empty() {
             let limitkey = cmd_info.to_string();
@@ -235,7 +250,7 @@ pub fn execute_command(
         }
         return throttle_command(cmd_info, throttle, &limitkey, context.clone(), cache);
     }
-    panic!("`debounce` or `throttle` must set ! (one must be greater than 0)");
+    exec(cmd_info)
 }
 
 #[cfg(test)]
@@ -250,6 +265,7 @@ mod tests {
         let event_path = PathBuf::from("event");
         let name = "test";
         let input = "input";
+        let event_kind = "Create";
         let output = tmp.join("test_execute_command");
         #[cfg(windows)]
         let cmd = "cmd";
@@ -279,6 +295,7 @@ mod tests {
             handles.push(thread::spawn(move || {
                 let result = execute_command(
                     &event_path,
+                    event_kind,
                     name,
                     input,
                     output.to_str().unwrap(),
@@ -315,6 +332,7 @@ mod tests {
     fn test_execute_long_command_with_throttle() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
+        let event_kind = "Create";
         let name = "test";
         let input = "input";
         let output = tmp.join("test_execute_command");
@@ -344,6 +362,7 @@ mod tests {
             handles.push(thread::spawn(move || {
                 let result = execute_command(
                     &event_path,
+                    event_kind,
                     name,
                     input,
                     output.to_str().unwrap(),
@@ -376,6 +395,7 @@ mod tests {
     fn test_execute_command_with_debounce() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
+        let event_kind = "Create";
         let name = "test";
         let input = "input";
         let output = tmp.join("test_execute_command");
@@ -407,6 +427,7 @@ mod tests {
             handles.push(thread::spawn(move || {
                 let result = execute_command(
                     &event_path,
+                    event_kind,
                     name,
                     input,
                     output.to_str().unwrap(),
@@ -443,6 +464,7 @@ mod tests {
     fn test_execute_long_command_with_debounce() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
+        let event_kind = "Create";
         let name = "test";
         let input = "input";
         let output = tmp.join("test_execute_command");
@@ -472,6 +494,7 @@ mod tests {
             handles.push(thread::spawn(move || {
                 let result = execute_command(
                     &event_path,
+                    event_kind,
                     name,
                     input,
                     output.to_str().unwrap(),

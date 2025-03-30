@@ -1,7 +1,13 @@
+# =============================================================================
+# File        : Cargo.toml
+# Author      : yukimemi
+# Last Change : 2025/03/09 00:32:51.
+# =============================================================================
+
 [package]
 name = "spyrun"
-version = "1.2.0"
-edition = "2021"
+version = "1.2.1"
+edition = "2024"
 authors = ["yukimemi <yukimemi@gmail.com>"]
 description = "File watcher and command executor"
 repository = "https://github.com/yukimemi/spyrun"
@@ -10,7 +16,7 @@ license = "MIT"
 [dependencies]
 aead = "0.5.2"
 aes-gcm-siv = "0.11.1"
-anyhow = "1.0.96"
+anyhow = "1.0.97"
 base64 = "0.22.1"
 chrono = "0.4.40"
 clap = { version = "4.5.31", features = ["derive", "env", "cargo", "unicode"] }
@@ -28,7 +34,7 @@ regex = "1.11.1"
 serde = { version = "1.0.218", features = ["derive"] }
 single-instance = "0.3.3"
 tera = "1.20.0"
-time = { version = "0.3.37", features = ["macros", "local-offset"] }
+time = { version = "0.3.39", features = ["macros", "local-offset"] }
 toml = "0.8.20"
 tracing = { version = "0.1.41", features = [
   "log",

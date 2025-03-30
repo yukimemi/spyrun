@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2025/03/06 00:29:25.
+// Last Change : 2025/03/09 00:32:15.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -19,16 +19,16 @@ use std::{
     fs::File,
     io::Write,
     path::{Path, PathBuf},
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::Duration,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use chrono::Local;
 use clap::Parser;
 use command::execute_command;
-use crypto_hash::{hex_digest, Algorithm};
+use crypto_hash::{Algorithm, hex_digest};
 use go_defer::defer;
 use log_derive::logfn;
 use message::Message;
@@ -146,21 +146,23 @@ fn watcher(
             match msg {
                 Message::Event(event) => {
                     if let Some(pattern) = find_pattern(&event, &spy) {
+                        let event_path = event.paths.last().unwrap();
                         let event_kind = event_kind_to_string(event.kind);
                         let tx_exec_clone = tx_execute.clone();
                         let spy = spy.clone();
                         let event = event.clone();
                         let cache = cache.clone();
                         let mut context = context.clone();
+                        context.insert("event_path", &event_path.to_string_lossy());
                         context.insert("event_kind", &event_kind);
-                        // debug!("[{}] pattern: {:?}", &spy.name, pattern);
-                        warn!(
-                            "[{}] pattern: [{:?}], paths: [{:?}]",
-                            &spy.name, pattern, &event.paths
+                        info!(
+                            "[{}] paths: [{:?}], pattern: [{:?}]",
+                            &spy.name, &event.paths, pattern
                         );
                         rayon::spawn(move || {
                             let status = execute_command(
                                 event.paths.last().unwrap(),
+                                &event_kind,
                                 &spy.name,
                                 &spy.input.unwrap(),
                                 &spy.output.unwrap(),
@@ -325,6 +327,7 @@ fn main() -> Result<()> {
     if let Some(init) = &settings.init {
         let status = execute_command(
             &(env::current_exe()?),
+            "Create",
             "init",
             "input",
             context.get("log_dir").unwrap().as_str().unwrap(),

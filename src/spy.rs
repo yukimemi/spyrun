@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : spy.rs
 // Author      : yukimemi
-// Last Change : 2025/03/05 01:19:34.
+// Last Change : 2025/03/09 00:31:45.
 // =============================================================================
 
 use std::{
@@ -15,12 +15,13 @@ use anyhow::Result;
 use log_derive::logfn;
 use normalize_path::NormalizePath;
 use notify::{
+    Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
     event::{AccessKind, CreateKind, EventAttributes, ModifyKind, RemoveKind},
-    recommended_watcher, Config, Event, EventKind, PollWatcher, RecommendedWatcher, Watcher,
+    recommended_watcher,
 };
 use rand::Rng;
 use regex::Regex;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use walkdir::WalkDir;
 
 use crate::{message::Message, settings::Spy};
@@ -138,14 +139,14 @@ impl Spy {
         let handle = thread::spawn(move || {
             match walk.pattern {
                 Some(pattern) => {
-                    warn!("[{}] walk pattern: [{}]", &spy.name, &pattern);
+                    info!("[{}] walk pattern: [{}]", &spy.name, &pattern);
                     let re = Regex::new(&pattern).unwrap();
                     debug!("[{}] re: [{:?}]", &spy.name, &re);
                     walker
                         .filter_map(|e| e.ok())
                         .filter(|e| e.path().to_str().is_some_and(|s| re.is_match(s)))
                         .for_each(|e| {
-                            warn!("walk paths: [{}]", &e.path().to_string_lossy());
+                            info!("walk paths: [{}]", &e.path().to_string_lossy());
                             tx.send(Message::Event(Event {
                                 kind: event_kind,
                                 paths: vec![e.path().to_path_buf()],
@@ -155,6 +156,7 @@ impl Spy {
                         });
                 }
                 _ => walker.filter_map(|e| e.ok()).for_each(|e| {
+                    info!("walk paths: [{}]", &e.path().to_string_lossy());
                     tx.send(Message::Event(Event {
                         kind: event_kind,
                         paths: vec![e.path().to_path_buf()],
@@ -182,7 +184,7 @@ impl Spy {
 mod tests {
     use std::{
         env,
-        fs::{create_dir_all, remove_dir_all, File},
+        fs::{File, create_dir_all, remove_dir_all},
         sync::mpsc,
         time::Duration,
     };

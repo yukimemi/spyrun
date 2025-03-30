@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2025/03/02 22:24:00.
+// Last Change : 2025/03/09 00:31:52.
 // =============================================================================
 
 #[cfg(windows)]
@@ -15,11 +15,11 @@ use std::{
 
 use aead::generic_array::GenericArray;
 use aes_gcm_siv::{
-    aead::{Aead, KeyInit},
     Aes256GcmSiv, Nonce,
+    aead::{Aead, KeyInit},
 };
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use log_derive::logfn;
 #[cfg(windows)]
 use normpath::PathExt;

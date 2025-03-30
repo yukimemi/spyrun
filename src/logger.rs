@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : logger.rs
 // Author      : yukimemi
-// Last Change : 2025/03/02 22:10:33.
+// Last Change : 2025/03/09 00:32:25.
 // =============================================================================
 
 use std::{
@@ -16,9 +16,9 @@ use tera::Context;
 use tracing_appender::non_blocking;
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    fmt::{time::ChronoLocal, writer::BoxMakeWriter, Layer},
-    prelude::*,
     EnvFilter, Registry,
+    fmt::{Layer, time::ChronoLocal, writer::BoxMakeWriter},
+    prelude::*,
 };
 
 use super::{settings::Settings, util::insert_file_context};
