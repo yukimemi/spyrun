@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2025/03/09 00:31:52.
+// Last Change : 2025/03/30 14:55:17.
 // =============================================================================
 
 #[cfg(windows)]
@@ -179,6 +179,7 @@ pub fn insert_default_context(context: &mut Context) {
     context.insert("log_name", "{{ log_name }}");
     context.insert("log_stem", "{{ log_stem }}");
     context.insert("log_ext", "{{ log_ext }}");
+    context.insert("limitkey", "{{ limitkey }}");
 }
 
 #[logfn(Trace)]

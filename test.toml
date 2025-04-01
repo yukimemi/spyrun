@@ -1,31 +1,38 @@
 # =============================================================================
 # File        : test.toml
 # Author      : yukimemi
-# Last Change : 2024/12/23 11:26:00.
+# Last Change : 2025/03/08 21:12:58.
 # =============================================================================
 
 [vars]
-version = '20241222_233205'
+version = '20250308_211258'
 
 [cfg]
-stop_flg = '{{ cfg_dir }}\stop.flg'
+stop_flg = '{{ cfg_path }}'
 
 [log]
 path = '{{ cfg_dir }}\log\{{ cmd_stem }}.log'
-level = 'debug'
+level = 'warn'
 
 [init]
 cmd = 'powershell'
 arg = ['-NoProfile', '-Command', '''& {
   echo '{{ version }}'
+  echo '{{ cwd }}'
+  Remove-Item -Force -Recurse -Filter "*.log" '{{ cwd }}\log'
+  Remove-Item -Force -Recurse '{{ cwd }}\test'
+  New-Item -Force -ItemType Directory '{{ cwd }}\test'
+  "file1" | Set-Content -Encoding utf8 '{{ cwd }}\test\file1.txt'
+  "file2" | Set-Content -Encoding utf8 '{{ cwd }}\test\file2.txt'
+  "file3" | Set-Content -Encoding utf8 '{{ cwd }}\test\file3.txt'
+  Remove-Item -Force -Recurse '{{ cwd }}\hoge'
 }''']
 
 [[spys]]
 name = 'test found dir'
 input = '{{ cfg_dir }}\test'
 output = '{{ log_dir }}\{{ spy_name }}'
-# [spys.poll]
-# interval = 10000
+[spys.walk]
 [[spys.patterns]]
 pattern = '.*'
 cmd = 'powershell'

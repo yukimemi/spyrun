@@ -205,7 +205,7 @@ Default value is false.
 ### debounce
 
 If you want to debounce execution, set this setting.
-Default value is 50 milliseconds.
+Default value is 0 milliseconds.
 
 ### throttle
 

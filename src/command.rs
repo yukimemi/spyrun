@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/03/09 00:32:34.
+// Last Change : 2025/03/30 21:45:09.
 // =============================================================================
 
 use std::{
@@ -214,9 +214,12 @@ pub fn execute_command(
     debounce: Duration,
     throttle: Duration,
     limitkey: &str,
-    context: Context,
+    mut context: Context,
     cache: &Arc<Mutex<HashMap<String, Instant>>>,
 ) -> Result<CommandResult> {
+    let tera = new_tera("limitkey", limitkey)?;
+    let mut limitkey = tera.render("limitkey", &context)?;
+    context.insert("limitkey", &limitkey);
     let cmd_info = render_command(
         CommandInfo {
             name: name.to_string(),
@@ -229,25 +232,19 @@ pub fn execute_command(
         },
         context.clone(),
     )?;
-    let tera = new_tera("limitkey", limitkey)?;
-    let limitkey = tera.render("limitkey", &context)?;
+    if limitkey.is_empty() {
+        limitkey = cmd_info.to_string();
+        context.insert("limitkey", &limitkey);
+    }
     info!(
         "[execute_command] limitkey: [{}], cmd_info: [{}]",
         &limitkey,
         cmd_info.to_string()
     );
     if debounce > Duration::from_millis(0) {
-        if limitkey.is_empty() {
-            let limitkey = cmd_info.to_string();
-            return debounce_command(cmd_info, debounce, &limitkey, context.clone(), cache);
-        }
         return debounce_command(cmd_info, debounce, &limitkey, context.clone(), cache);
     }
     if throttle > Duration::from_millis(0) {
-        if limitkey.is_empty() {
-            let limitkey = cmd_info.to_string();
-            return throttle_command(cmd_info, throttle, &limitkey, context.clone(), cache);
-        }
         return throttle_command(cmd_info, throttle, &limitkey, context.clone(), cache);
     }
     exec(cmd_info)
