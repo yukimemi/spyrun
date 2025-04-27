@@ -376,7 +376,7 @@ mod tests {
             let output = output.clone();
 
             handles.push(thread::spawn(move || {
-                let result = execute_command(
+                execute_command(
                     &event_path,
                     event_kind,
                     name,
@@ -392,8 +392,7 @@ mod tests {
                     &dt_cache,    // Renamed argument
                     &mutex_cache, // New argument
                 )
-                .unwrap();
-                result
+                .unwrap()
             }));
             // Start threads in rapid succession to make throttle more effective, wait a bit
             thread::sleep(Duration::from_millis(100));
@@ -478,7 +477,7 @@ mod tests {
             let context = context.clone();
             let output = output.clone();
             handles.push(thread::spawn(move || {
-                let result = execute_command(
+                execute_command(
                     &event_path,
                     event_kind,
                     name,
@@ -494,8 +493,7 @@ mod tests {
                     &dt_cache,    // Renamed argument
                     &mutex_cache, // New argument
                 )
-                .unwrap();
-                result
+                .unwrap()
             }));
             // Start threads at intervals shorter than the throttle threshold
             thread::sleep(Duration::from_millis(100));
@@ -585,7 +583,7 @@ mod tests {
             let output = output.clone();
 
             handles.push(thread::spawn(move || {
-                let result = execute_command(
+                execute_command(
                     &event_path,
                     event_kind,
                     name,
@@ -601,8 +599,7 @@ mod tests {
                     &dt_cache,    // Renamed argument
                     &mutex_cache, // New argument
                 )
-                .unwrap();
-                result
+                .unwrap()
             }));
             // Start threads at intervals (100ms) shorter than the debounce threshold (500ms)
             thread::sleep(Duration::from_millis(100));
@@ -682,7 +679,7 @@ mod tests {
             let context = context.clone();
             let output = output.clone();
             handles.push(thread::spawn(move || {
-                let result = execute_command(
+                execute_command(
                     &event_path,
                     event_kind,
                     name,
@@ -698,8 +695,7 @@ mod tests {
                     &dt_cache,    // Renamed argument
                     &mutex_cache, // New argument
                 )
-                .unwrap();
-                result
+                .unwrap()
             }));
             // Start threads at intervals (50ms) shorter than the debounce threshold (100ms)
             thread::sleep(Duration::from_millis(50));
