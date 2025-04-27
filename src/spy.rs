@@ -220,7 +220,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                panic!("watch error: {:?}", e);
+                panic!("watch error: {e:?}");
             }
         }
         Ok(())
@@ -250,7 +250,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                panic!("poll watch error: {:?}", e);
+                panic!("poll watch error: {e:?}");
             }
         }
         Ok(())
@@ -280,7 +280,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                panic!("poll watch error: {:?}", e);
+                panic!("poll watch error: {e:?}");
             }
         }
         Ok(())
@@ -316,7 +316,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                panic!("poll watch error: {:?}", e);
+                panic!("poll watch error: {e:?}");
             }
         }
 
@@ -354,7 +354,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                panic!("poll watch error: {:?}", e);
+                panic!("poll watch error: {e:?}");
             }
         }
 

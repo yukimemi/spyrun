@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 16:46:03.
+// Last Change : 2025/04/27 16:50:09.
 // =============================================================================
 
 use std::{
@@ -182,68 +182,6 @@ pub fn render_command(cmd_info: CommandInfo, context: Context) -> Result<Command
 }
 
 #[tracing::instrument]
-#[logfn(Trace)]
-pub fn debounce_command(
-    cmd_info: CommandInfo,
-    threshold: Duration,
-    limitkey: &str,
-    context: Context,
-    cache: &Arc<Mutex<HashMap<String, Instant>>>,
-) -> Result<CommandResult> {
-    let now = Instant::now();
-    let mut lock = cache.lock().unwrap();
-    lock.insert(limitkey.to_string(), now);
-    drop(lock);
-
-    thread::sleep(threshold);
-
-    let lock = cache.lock().unwrap();
-    let executed = lock.get(limitkey).unwrap();
-    if executed > &now {
-        debug!("Debounce! Skip execute limitkey: {}", &limitkey.to_string(),);
-        return Ok(CommandResult {
-            status: ExitStatus::default(),
-            stdout: PathBuf::new(),
-            stderr: PathBuf::new(),
-            skipped: true,
-        });
-    }
-    drop(lock);
-
-    exec(cmd_info)
-}
-
-#[tracing::instrument]
-#[logfn(Trace)]
-pub fn throttle_command(
-    cmd_info: CommandInfo,
-    threshold: Duration,
-    limitkey: &str,
-    context: Context,
-    cache: &Arc<Mutex<HashMap<String, Instant>>>,
-) -> Result<CommandResult> {
-    let now = Instant::now();
-    let mut lock = cache.lock().unwrap();
-    let executed = lock.get(limitkey);
-    if let Some(executed) = executed {
-        if now.duration_since(*executed) < threshold {
-            drop(lock);
-            debug!("Throttle! Skip execute limitkey: {}", &limitkey.to_string(),);
-            return Ok(CommandResult {
-                status: ExitStatus::default(),
-                stdout: PathBuf::default(),
-                stderr: PathBuf::default(),
-                skipped: true,
-            });
-        }
-    }
-    lock.insert(limitkey.to_string(), now);
-    drop(lock);
-
-    exec(cmd_info)
-}
-
-#[tracing::instrument]
 #[logfn(Debug)]
 pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
@@ -345,28 +283,27 @@ pub fn execute_command(
     );
 
     // 3. Apply Debounce logic (if enabled)
-    if debounce > Duration::from_millis(0) {
-        if apply_debounce(&limitkey, debounce, dt_cache) {
-            return Ok(CommandResult {
-                status: ExitStatus::default(), // Default value when skipped
-                stdout: PathBuf::new(),
-                stderr: PathBuf::new(),
-                skipped: true,
-            });
-        }
+    if debounce > Duration::from_millis(0) && apply_debounce(&limitkey, debounce, dt_cache) {
+        return Ok(CommandResult {
+            status: ExitStatus::default(), // Default value when skipped
+            stdout: PathBuf::new(),
+            stderr: PathBuf::new(),
+            skipped: true,
+        });
     }
 
     // 4. Apply Throttle logic (if enabled and Debounce is disabled)
     // Note: Debounce and Throttle are intended to be mutually exclusive
-    if throttle > Duration::from_millis(0) && debounce == Duration::from_millis(0) {
-        if apply_throttle(&limitkey, throttle, dt_cache) {
-            return Ok(CommandResult {
-                status: ExitStatus::default(), // Default value when skipped
-                stdout: PathBuf::default(),
-                stderr: PathBuf::default(),
-                skipped: true,
-            });
-        }
+    if throttle > Duration::from_millis(0)
+        && debounce == Duration::from_millis(0)
+        && apply_throttle(&limitkey, throttle, dt_cache)
+    {
+        return Ok(CommandResult {
+            status: ExitStatus::default(), // Default value when skipped
+            stdout: PathBuf::default(),
+            stderr: PathBuf::default(),
+            skipped: true,
+        });
     }
 
     // 5. Apply Mutex logic
@@ -442,7 +379,7 @@ mod tests {
                 let result = execute_command(
                     &event_path,
                     event_kind,
-                    &name,
+                    name,
                     input,
                     output.to_str().unwrap(),
                     cmd,
@@ -544,7 +481,7 @@ mod tests {
                 let result = execute_command(
                     &event_path,
                     event_kind,
-                    &name,
+                    name,
                     input,
                     output.to_str().unwrap(),
                     cmd,
@@ -651,7 +588,7 @@ mod tests {
                 let result = execute_command(
                     &event_path,
                     event_kind,
-                    &name,
+                    name,
                     input,
                     output.to_str().unwrap(),
                     cmd,
@@ -748,7 +685,7 @@ mod tests {
                 let result = execute_command(
                     &event_path,
                     event_kind,
-                    &name,
+                    name,
                     input,
                     output.to_str().unwrap(),
                     cmd,
