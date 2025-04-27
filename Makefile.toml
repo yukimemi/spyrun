@@ -40,6 +40,11 @@ command = "cargo"
 args = ["clippy"]
 dependencies = ["format", "check"]
 
+[tasks.fix]
+command = "cargo"
+args = ["clippy", "--fix"]
+dependencies = ["format", "check"]
+
 [tasks.test]
 command = "cargo"
 args = ["test", "--", "--show-output"]

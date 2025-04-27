@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 16:34:19.
+// Last Change : 2025/04/27 16:46:03.
 // =============================================================================
 
 use std::{
@@ -59,42 +59,42 @@ pub struct CommandResult {
     skipped: bool,
 }
 
-// debounce のロジックを分離したヘルパー関数
+// Helper function to separate debounce logic
 fn apply_debounce(
     limitkey: &str,
     threshold: Duration,
     dt_cache: &Arc<Mutex<HashMap<String, Instant>>>,
 ) -> bool /* true if skipped */ {
     if threshold == Duration::from_millis(0) {
-        return false; // Debounce 無効
+        return false; // Debounce disabled
     }
     let now = Instant::now();
     let mut lock = dt_cache.lock().unwrap();
     lock.insert(limitkey.to_string(), now);
     drop(lock);
 
-    // 指定された閾値だけ待つ (ブロッキング)
+    // Wait for the specified threshold (blocking)
     thread::sleep(threshold);
 
     let lock = dt_cache.lock().unwrap();
-    let executed = lock.get(limitkey).unwrap(); // 直前に挿入したので存在するはず
+    let executed = lock.get(limitkey).unwrap(); // Should exist as it was just inserted
     if executed > &now {
-        debug!("Debounce ! Skip execute limitkey: {}", limitkey);
-        true // スキップ
+        debug!("Debounce! Skip execute limitkey: {}", limitkey);
+        true // Skip
     } else {
         debug!("Debounce passed for limitkey: {}", limitkey);
-        false // スキップしない
+        false // Do not skip
     }
 }
 
-// throttle のロジックを分離したヘルパー関数
+// Helper function to separate throttle logic
 fn apply_throttle(
     limitkey: &str,
     threshold: Duration,
     dt_cache: &Arc<Mutex<HashMap<String, Instant>>>,
 ) -> bool /* true if skipped */ {
     if threshold == Duration::from_millis(0) {
-        return false; // Throttle 無効
+        return false; // Throttle disabled
     }
     let now = Instant::now();
     let mut lock = dt_cache.lock().unwrap();
@@ -102,44 +102,44 @@ fn apply_throttle(
     if let Some(executed) = executed {
         if now.duration_since(*executed) < threshold {
             drop(lock);
-            debug!("Throttle ! Skip execute limitkey: {}", limitkey);
-            return true; // スキップ
+            debug!("Throttle! Skip execute limitkey: {}", limitkey);
+            return true; // Skip
         }
     }
-    // スキップしなかった場合はキャッシュを更新
+    // Update the cache if not skipped
     lock.insert(limitkey.to_string(), now);
     drop(lock);
     debug!("Throttle passed for limitkey: {}", limitkey);
-    false // スキップしない
+    false // Do not skip
 }
 
-// mutex のロック取得を試みるヘルパー関数
-fn acquire_mutex(mutex_key: &str, mutex_cache: &Arc<Mutex<HashSet<String>>>) -> bool /* true if acquired, false if skipped */
+// Helper function to attempt acquiring a mutex lock
+fn acquire_mutex(mutexkey: &str, mutex_cache: &Arc<Mutex<HashSet<String>>>) -> bool /* true if acquired, false if skipped */
 {
-    if mutex_key.is_empty() {
-        // mutex_key が空の場合は常に取得成功とみなす（mutex 無効）
+    if mutexkey.is_empty() {
+        // If mutexkey is empty, always consider acquisition successful (mutex disabled)
         return true;
     }
     let mut lock = mutex_cache.lock().unwrap();
-    if lock.contains(mutex_key) {
-        debug!("Mutex held ! Skip execute mutex_key: {}", mutex_key);
-        false // ロック取得失敗、スキップ
+    if lock.contains(mutexkey) {
+        debug!("Mutex held! Skip execute mutexkey: {}", mutexkey);
+        false // Failed to acquire lock, skip
     } else {
-        lock.insert(mutex_key.to_string());
-        debug!("Mutex acquired for mutex_key: {}", mutex_key);
-        true // ロック取得成功
+        lock.insert(mutexkey.to_string());
+        debug!("Mutex acquired for mutexkey: {}", mutexkey);
+        true // Acquired lock successfully
     }
 }
 
-// mutex のロックを解除するヘルパー関数
-fn release_mutex(mutex_key: &str, mutex_cache: &Arc<Mutex<HashSet<String>>>) {
-    if mutex_key.is_empty() {
-        // mutex_key が空の場合は何もしない
+// Helper function to release a mutex lock
+fn release_mutex(mutexkey: &str, mutex_cache: &Arc<Mutex<HashSet<String>>>) {
+    if mutexkey.is_empty() {
+        // If mutexkey is empty, do nothing
         return;
     }
     let mut lock = mutex_cache.lock().unwrap();
-    lock.remove(mutex_key);
-    debug!("Mutex released for mutex_key: {}", mutex_key);
+    lock.remove(mutexkey);
+    debug!("Mutex released for mutexkey: {}", mutexkey);
 }
 
 #[tracing::instrument]
@@ -200,10 +200,7 @@ pub fn debounce_command(
     let lock = cache.lock().unwrap();
     let executed = lock.get(limitkey).unwrap();
     if executed > &now {
-        debug!(
-            "Debounce ! Skip execute limitkey: {}",
-            &limitkey.to_string(),
-        );
+        debug!("Debounce! Skip execute limitkey: {}", &limitkey.to_string(),);
         return Ok(CommandResult {
             status: ExitStatus::default(),
             stdout: PathBuf::new(),
@@ -231,10 +228,7 @@ pub fn throttle_command(
     if let Some(executed) = executed {
         if now.duration_since(*executed) < threshold {
             drop(lock);
-            debug!(
-                "Throttle ! Skip execute limitkey: {}",
-                &limitkey.to_string(),
-            );
+            debug!("Throttle! Skip execute limitkey: {}", &limitkey.to_string(),);
             return Ok(CommandResult {
                 status: ExitStatus::default(),
                 stdout: PathBuf::default(),
@@ -304,13 +298,13 @@ pub fn execute_command(
     arg: Vec<String>,
     debounce: Duration,
     throttle: Duration,
-    limitkey_tmpl: &str,  // debounce/throttle 用のキーテンプレート
-    mutex_key_tmpl: &str, // mutex 用のキーテンプレートを追加
+    limitkey_tmpl: &str, // Key template for debounce/throttle
+    mutexkey_tmpl: &str, // Add key template for mutex
     mut context: Context,
-    dt_cache: &Arc<Mutex<HashMap<String, Instant>>>, // debounce/throttle 用キャッシュにリネーム
-    mutex_cache: &Arc<Mutex<HashSet<String>>>,       // mutex 用キャッシュを追加
+    dt_cache: &Arc<Mutex<HashMap<String, Instant>>>, // Renamed to debounce/throttle cache
+    mutex_cache: &Arc<Mutex<HashSet<String>>>,       // Add mutex cache
 ) -> Result<CommandResult> {
-    // 1. CommandInfo をレンダリング
+    // 1. Render CommandInfo
     let cmd_info = render_command(
         CommandInfo {
             name: name.to_string(),
@@ -321,40 +315,40 @@ pub fn execute_command(
             input: input.to_string(),
             output: output.to_string(),
         },
-        context.clone(), // レンダリング用に Context をクローン
+        context.clone(), // Clone Context for rendering
     )?;
 
-    // 2. limitkey および mutex_key テンプレートをレンダリング
+    // 2. Render limitkey and mutexkey templates
     let limitkey = if limitkey_tmpl.is_empty() {
-        cmd_info.to_string() // テンプレートが空なら CommandInfo をデフォルトキーとする
+        cmd_info.to_string() // Use CommandInfo as default key if template is empty
     } else {
         let tera = new_tera("limitkey", limitkey_tmpl)?;
-        // context には event や render_command で追加された情報が含まれている
+        // Context includes event and info added by render_command
         tera.render("limitkey", &context)?
     };
-    context.insert("limitkey", &limitkey); // レンダリングした limitkey を context に追加
+    context.insert("limitkey", &limitkey); // Add rendered limitkey to context
 
-    let mutex_key = if mutex_key_tmpl.is_empty() {
-        cmd_info.to_string() // テンプレートが空なら CommandInfo をデフォルトキーとする
+    let mutexkey = if mutexkey_tmpl.is_empty() {
+        cmd_info.to_string() // Use CommandInfo as default key if template is empty
     } else {
-        let tera = new_tera("mutex_key", mutex_key_tmpl)?;
-        // context には limitkey も追加されている
-        tera.render("mutex_key", &context)?
+        let tera = new_tera("mutexkey", mutexkey_tmpl)?;
+        // Context also includes limitkey
+        tera.render("mutexkey", &context)?
     };
-    context.insert("mutex_key", &mutex_key); // レンダリングした mutex_key を context に追加
+    context.insert("mutexkey", &mutexkey); // Add rendered mutexkey to context
 
     info!(
-        "[execute_command] limitkey: [{}], mutex_key: [{}], cmd_info: [{}]",
+        "[execute_command] limitkey: [{}], mutexkey: [{}], cmd_info: [{}]",
         &limitkey,
-        &mutex_key,
+        &mutexkey,
         cmd_info.to_string()
     );
 
-    // 3. Debounce ロジック適用 (有効な場合)
+    // 3. Apply Debounce logic (if enabled)
     if debounce > Duration::from_millis(0) {
         if apply_debounce(&limitkey, debounce, dt_cache) {
             return Ok(CommandResult {
-                status: ExitStatus::default(), // スキップ時はデフォルト値
+                status: ExitStatus::default(), // Default value when skipped
                 stdout: PathBuf::new(),
                 stderr: PathBuf::new(),
                 skipped: true,
@@ -362,12 +356,12 @@ pub fn execute_command(
         }
     }
 
-    // 4. Throttle ロジック適用 (有効かつ Debounce が無効な場合)
-    // Note: DebounceとThrottleは排他利用を想定
+    // 4. Apply Throttle logic (if enabled and Debounce is disabled)
+    // Note: Debounce and Throttle are intended to be mutually exclusive
     if throttle > Duration::from_millis(0) && debounce == Duration::from_millis(0) {
         if apply_throttle(&limitkey, throttle, dt_cache) {
             return Ok(CommandResult {
-                status: ExitStatus::default(), // スキップ時はデフォルト値
+                status: ExitStatus::default(), // Default value when skipped
                 stdout: PathBuf::default(),
                 stderr: PathBuf::default(),
                 skipped: true,
@@ -375,21 +369,21 @@ pub fn execute_command(
         }
     }
 
-    // 5. Mutex ロジック適用
-    // acquire_mutex の中で mutex_key が空かチェックしているので、ここではacquire_mutexを呼ぶだけでOK
-    if acquire_mutex(&mutex_key, mutex_cache) {
-        // Mutex の取得に成功（または mutex_key が空で mutex 無効の場合）
-        // スコープを抜けるときに必ず release_mutex を呼ぶように設定
+    // 5. Apply Mutex logic
+    // acquire_mutex checks if mutexkey is empty internally, so just calling it is enough
+    if acquire_mutex(&mutexkey, mutex_cache) {
+        // Mutex acquired successfully (or mutex disabled if mutexkey is empty)
+        // Set up defer to ensure release_mutex is called when leaving the scope
         defer! {
-            release_mutex(&mutex_key, mutex_cache);
+            release_mutex(&mutexkey, mutex_cache);
         }
-        // コマンドを実行し、その結果を返す
+        // Execute the command and return the result
         exec(cmd_info)
     } else {
-        // Mutex の取得に失敗（他のスレッドが実行中）
+        // Failed to acquire Mutex (another thread is executing)
         Ok(CommandResult {
-            status: ExitStatus::default(), // スキップ時はデフォルト値
-            stdout: PathBuf::new(),        // スキップ時は空のパス
+            status: ExitStatus::default(), // Default value when skipped
+            stdout: PathBuf::new(),        // Empty path when skipped
             stderr: PathBuf::new(),
             skipped: true,
         })
@@ -402,33 +396,33 @@ mod tests {
 
     use super::*;
 
-    // 既存のテストを新しい execute_command の引数に合わせて修正
+    // Modify existing tests to match the new execute_command arguments
     #[test]
     fn test_execute_command_with_throttle() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
-        let name = "test_throttle"; // 名前を変更
+        let name = "test_throttle"; // Changed name
         let input = "input";
         let event_kind = "Create";
-        let output = tmp.join(name); // 出力ディレクトリ名も変更
+        let output = tmp.join(name); // Changed output directory name
         #[cfg(windows)]
         let cmd = "cmd";
         #[cfg(not(windows))]
         let cmd = "/bin/sh";
         #[cfg(windows)]
-        let arg = vec!["/c", "echo", "test_execute_command_throttle"] // メッセージ変更
+        let arg = vec!["/c", "echo", "test_execute_command_throttle"] // Changed message
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
         #[cfg(not(windows))]
-        let arg = vec!["-c", "echo", "test_execute_command_throttle"] // メッセージ変更
+        let arg = vec!["-c", "echo", "test_execute_command_throttle"] // Changed message
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
-        let throttle = Duration::from_secs(1); // 閾値を短くしてテストしやすくする
+        let throttle = Duration::from_secs(1); // Shorten threshold for easier testing
         let debounce = Duration::from_millis(0);
-        let limitkey_tmpl = ""; // デフォルトの limitkey を使う
-        let mutex_key_tmpl = ""; // mutex は使用しない
+        let limitkey_tmpl = ""; // Use default limitkey
+        let mutexkey_tmpl = ""; // Do not use mutex
         let context = Context::new();
         let dt_cache = Arc::new(Mutex::new(HashMap::new()));
         let mutex_cache = Arc::new(Mutex::new(HashSet::new())); // dummy mutex cache
@@ -456,25 +450,25 @@ mod tests {
                     debounce,
                     throttle,
                     limitkey_tmpl,
-                    mutex_key_tmpl, // 新しい引数
+                    mutexkey_tmpl, // New argument
                     context,
-                    &dt_cache,    // リネーム後の引数
-                    &mutex_cache, // 新しい引数
+                    &dt_cache,    // Renamed argument
+                    &mutex_cache, // New argument
                 )
                 .unwrap();
                 result
             }));
-            // スレッドを立て続けに開始して、throttle の影響が出やすいように少し待つ
+            // Start threads in rapid succession to make throttle more effective, wait a bit
             thread::sleep(Duration::from_millis(100));
         }
 
         let results: Vec<CommandResult> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
-        // throttle の閾値内 (1秒) に3回実行しようとしている
-        // 1回目は実行されるはず
-        // 2回目以降は、1回目の実行から1秒経ってなければスキップされるはず
-        // このテストでは、1回目の実行開始後100ms間隔で2,3回目を開始するので、
-        // 2,3回目はthrottleによってスキップされることを期待する
+        // Attempting to execute 3 times within the throttle threshold (1 second)
+        // The first execution should happen
+        // Subsequent executions should be skipped if they occur within 1 second of the first
+        // In this test, threads 2 and 3 start 100ms apart after the first, so they are expected
+        // to be skipped by throttle.
         let executed_count = results.iter().filter(|r| !r.skipped).count();
         let skipped_count = results.iter().filter(|r| r.skipped).count();
 
@@ -488,15 +482,15 @@ mod tests {
             "Remaining commands should have been skipped by throttle"
         );
 
-        // 実行されたコマンドの確認
+        // Verify the executed command
         let executed_result = results.iter().find(|r| !r.skipped).unwrap();
         assert_eq!(executed_result.status.code(), Some(0));
         assert!(!executed_result.skipped);
 
-        // スキップされたコマンドの確認
+        // Verify the skipped commands
         for skipped_result in results.iter().filter(|r| r.skipped) {
             assert!(skipped_result.skipped);
-            // スキップされた場合は status はデフォルト値、stdout/stderr は空パス
+            // status is default value when skipped, stdout/stderr are empty paths
             // original test checked status.code() == Some(0), keeping for consistency but it's brittle
             assert_eq!(skipped_result.status.code(), Some(0));
         }
@@ -504,15 +498,15 @@ mod tests {
         Ok(())
     }
 
-    // このテストは throttle の閾値よりコマンド実行時間が短い場合を想定
+    // This test assumes command execution time is shorter than the throttle threshold
     #[test]
     fn test_execute_short_command_with_throttle() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
         let event_kind = "Create";
-        let name = "test_short_throttle"; // 名前変更
+        let name = "test_short_throttle"; // Changed name
         let input = "input";
-        let output = tmp.join(name); // 出力ディレクトリ名変更
+        let output = tmp.join(name); // Changed output directory name
         #[cfg(windows)]
         let cmd = "cmd";
         #[cfg(not(windows))]
@@ -527,10 +521,10 @@ mod tests {
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
-        let throttle = Duration::from_millis(500); // throttle 閾値
+        let throttle = Duration::from_millis(500); // throttle threshold
         let debounce = Duration::from_millis(0);
         let limitkey_tmpl = "";
-        let mutex_key_tmpl = ""; // mutex は使用しない
+        let mutexkey_tmpl = ""; // Do not use mutex
         let context = Context::new();
         let dt_cache = Arc::new(Mutex::new(HashMap::new()));
         let mutex_cache = Arc::new(Mutex::new(HashSet::new())); // dummy mutex cache
@@ -558,15 +552,15 @@ mod tests {
                     debounce,
                     throttle,
                     limitkey_tmpl,
-                    mutex_key_tmpl, // 新しい引数
+                    mutexkey_tmpl, // New argument
                     context,
-                    &dt_cache,    // リネーム後の引数
-                    &mutex_cache, // 新しい引数
+                    &dt_cache,    // Renamed argument
+                    &mutex_cache, // New argument
                 )
                 .unwrap();
                 result
             }));
-            // throttle 閾値より短い間隔でスレッドを開始
+            // Start threads at intervals shorter than the throttle threshold
             thread::sleep(Duration::from_millis(100));
         }
         let results: Vec<CommandResult> = handles.into_iter().map(|h| h.join().unwrap()).collect();
@@ -574,10 +568,10 @@ mod tests {
         let end = Instant::now();
         let duration = end.duration_since(start);
 
-        // throttle 閾値 (500ms) より短い間隔 (100ms) で実行しようとしている
-        // 1回目は実行される
-        // 2回目は1回目から100ms後に来るので、throttle(500ms)によりスキップ
-        // 3回目は2回目から100ms後に来るので、throttle(500ms)によりスキップ
+        // Attempting to execute 3 times at intervals (100ms) shorter than the throttle threshold (500ms)
+        // The first execution should happen
+        // The second execution comes 100ms after the first, skipped by throttle (500ms)
+        // The third execution comes 100ms after the second, skipped by throttle (500ms)
         let executed_count = results.iter().filter(|r| !r.skipped).count();
         let skipped_count = results.iter().filter(|r| r.skipped).count();
 
@@ -591,21 +585,23 @@ mod tests {
             "Remaining commands should have been skipped by throttle"
         );
 
-        // 実行されたコマンドの確認
+        // Verify the executed command
         let executed_result = results.iter().find(|r| !r.skipped).unwrap();
         assert_eq!(executed_result.status.code(), Some(0));
         assert!(!executed_result.skipped);
 
-        // スキップされたコマンドの確認
+        // Verify the skipped commands
         for skipped_result in results.iter().filter(|r| r.skipped) {
             assert!(skipped_result.skipped);
             assert_eq!(skipped_result.status.code(), Some(0));
         }
 
-        // 実行時間は最初のコマンド実行時間(ほぼゼロ) + thread.sleep + オーバーヘッド
-        // 3回のthread.sleep(100ms)があるので、合計時間はおおよそ 300ms + α
-        assert!(duration >= Duration::from_millis(300));
-        assert!(duration < Duration::from_millis(1000)); // 1秒以内には終わるはず
+        // Verify the execution duration
+        // Total time is roughly the time until the last thread starts + the command execution time (almost zero) + overhead
+        // With 3 threads starting at 100ms intervals, the last thread starts at t=200ms.
+        // The total duration should be roughly 200ms + alpha.
+        assert!(duration >= Duration::from_millis(200));
+        assert!(duration < Duration::from_millis(1000)); // Should finish within 1 second
 
         Ok(())
     }
@@ -615,27 +611,27 @@ mod tests {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
         let event_kind = "Create";
-        let name = "test_debounce"; // 名前変更
+        let name = "test_debounce"; // Changed name
         let input = "input";
-        let output = tmp.join(name); // 出力ディレクトリ名変更
+        let output = tmp.join(name); // Changed output directory name
         #[cfg(windows)]
         let cmd = "cmd";
         #[cfg(not(windows))]
         let cmd = "/bin/sh";
         #[cfg(windows)]
-        let arg = vec!["/c", "echo", "test_execute_command_debounce"] // メッセージ変更
+        let arg = vec!["/c", "echo", "test_execute_command_debounce"] // Changed message
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
         #[cfg(not(windows))]
-        let arg = vec!["-c", "echo", "test_execute_command_debounce"] // メッセージ変更
+        let arg = vec!["-c", "echo", "test_execute_command_debounce"] // Changed message
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
-        let debounce = Duration::from_millis(500); // debounce 閾値
+        let debounce = Duration::from_millis(500); // debounce threshold
         let throttle = Duration::from_millis(0);
         let limitkey_tmpl = "";
-        let mutex_key_tmpl = "";
+        let mutexkey_tmpl = "";
         let context = Context::new();
         let dt_cache = Arc::new(Mutex::new(HashMap::new()));
         let mutex_cache = Arc::new(Mutex::new(HashSet::new()));
@@ -663,22 +659,22 @@ mod tests {
                     debounce,
                     throttle,
                     limitkey_tmpl,
-                    mutex_key_tmpl, // 新しい引数
+                    mutexkey_tmpl, // New argument
                     context,
-                    &dt_cache,    // リネーム後の引数
-                    &mutex_cache, // 新しい引数
+                    &dt_cache,    // Renamed argument
+                    &mutex_cache, // New argument
                 )
                 .unwrap();
                 result
             }));
-            // debounce 閾値 (500ms) より短い間隔 (100ms) でスレッドを開始
+            // Start threads at intervals (100ms) shorter than the debounce threshold (500ms)
             thread::sleep(Duration::from_millis(100));
         }
 
         let results: Vec<CommandResult> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
-        // debounce 閾値 (500ms) 内に3回実行しようとしている
-        // 最後のリクエストから500ms待つので、最初の2回はスキップされ、最後の1回だけ実行されるはず
+        // Attempting to execute 3 times within the debounce threshold (500ms)
+        // Should wait for 500ms after the last request. The first 2 should be skipped, only the last one executed.
         let executed_count = results.iter().filter(|r| !r.skipped).count();
         let skipped_count = results.iter().filter(|r| r.skipped).count();
 
@@ -692,12 +688,12 @@ mod tests {
             "Remaining commands should have been skipped by debounce"
         );
 
-        // 実行されたコマンドの確認
+        // Verify the executed command
         let executed_result = results.iter().find(|r| !r.skipped).unwrap();
         assert_eq!(executed_result.status.code(), Some(0));
         assert!(!executed_result.skipped);
 
-        // スキップされたコマンドの確認
+        // Verify the skipped commands
         for skipped_result in results.iter().filter(|r| r.skipped) {
             assert!(skipped_result.skipped);
             assert_eq!(skipped_result.status.code(), Some(0));
@@ -706,15 +702,15 @@ mod tests {
         Ok(())
     }
 
-    // このテストは debounce の閾値よりコマンド実行時間が短い場合を想定
+    // This test assumes command execution time is shorter than the debounce threshold
     #[test]
     fn test_execute_short_command_with_debounce() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
         let event_kind = "Create";
-        let name = "test_short_debounce"; // 名前変更
+        let name = "test_short_debounce"; // Changed name
         let input = "input";
-        let output = tmp.join(name); // 出力ディレクトリ名変更
+        let output = tmp.join(name); // Changed output directory name
         #[cfg(windows)]
         let cmd = "cmd";
         #[cfg(not(windows))]
@@ -729,10 +725,10 @@ mod tests {
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
-        let debounce = Duration::from_millis(100); // debounce 閾値
+        let debounce = Duration::from_millis(100); // debounce threshold
         let throttle = Duration::from_millis(0);
         let limitkey_tmpl = "";
-        let mutex_key_tmpl = ""; // mutex は使用しない
+        let mutexkey_tmpl = ""; // Do not use mutex
         let context = Context::new();
         let dt_cache = Arc::new(Mutex::new(HashMap::new()));
         let mutex_cache = Arc::new(Mutex::new(HashSet::new())); // dummy mutex cache
@@ -760,27 +756,27 @@ mod tests {
                     debounce,
                     throttle,
                     limitkey_tmpl,
-                    mutex_key_tmpl, // 新しい引数
+                    mutexkey_tmpl, // New argument
                     context,
-                    &dt_cache,    // リネーム後の引数
-                    &mutex_cache, // 新しい引数
+                    &dt_cache,    // Renamed argument
+                    &mutex_cache, // New argument
                 )
                 .unwrap();
                 result
             }));
-            // debounce 閾値より短い間隔 (50ms) でスレッドを開始
+            // Start threads at intervals (50ms) shorter than the debounce threshold (100ms)
             thread::sleep(Duration::from_millis(50));
         }
-        // 最後のリクエストの後、debounce 閾値分待つ時間が必要
-        // thread::sleep(debounce); // execute_command の中で sleep するので不要
+        // Need to wait for the debounce threshold after the last request
+        // thread::sleep(debounce); // This wait is handled inside execute_command
 
         let results: Vec<CommandResult> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
         let end = Instant::now();
         let duration = end.duration_since(start);
 
-        // debounce 閾値 (100ms) 内に3回実行しようとしている
-        // 最後のリクエストから100ms待つので、最初の2回はスキップされ、最後の1回だけ実行されるはず
+        // Attempting to execute 3 times within the debounce threshold (100ms)
+        // Should wait for 100ms after the last request. The first 2 should be skipped, only the last one executed.
         let executed_count = results.iter().filter(|r| !r.skipped).count();
         let skipped_count = results.iter().filter(|r| r.skipped).count();
 
@@ -794,55 +790,54 @@ mod tests {
             "Remaining commands should have been skipped by debounce"
         );
 
-        // 実行されたコマンドの確認
+        // Verify the executed command
         let executed_result = results.iter().find(|r| !r.skipped).unwrap();
         assert_eq!(executed_result.status.code(), Some(0));
         assert!(!executed_result.skipped);
 
-        // スキップされたコマンドの確認
+        // Verify the skipped commands
         for skipped_result in results.iter().filter(|r| r.skipped) {
             assert!(skipped_result.skipped);
             assert_eq!(skipped_result.status.code(), Some(0));
         }
 
-        // 実行時間は最後のリクエストが来てから debounce 閾値分待つ時間 + コマンド実行時間(ほぼゼロ) + オーバーヘッド
-        // 最後のスレッドが始まってから結果が返るまでにおおよそ debounce 閾値(100ms)がかかるはず。
-        // 全体としては、最初のスレッド開始から最後のスレッドが debounce wait を終えるまで。
-        // 最初のスレッド開始(t=0), 次(t=50), 次(t=100). 最後のスレッドがwaitを終えるのは t=100+100=200ms.
-        // 全体時間はおおよそ 200ms + α
+        // Verify the execution duration
+        // Total time is roughly the time from the first thread start until the last thread finishes its debounce wait + command execution time (almost zero) + overhead.
+        // Threads start at t=0, t=50, t=100ms. The last thread finishes its debounce wait 100ms after it started, i.e., at t=200ms.
+        // The total duration should be roughly 200ms + alpha.
         assert!(duration >= Duration::from_millis(200));
-        assert!(duration < Duration::from_millis(500)); // 500ms 以内には終わるはず
+        assert!(duration < Duration::from_millis(500)); // Should finish within 500ms
 
         Ok(())
     }
 
-    // mutex 機能のテストケース
+    // Test case for mutex functionality
     #[test]
     fn test_execute_command_with_mutex() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
         let event_kind = "Create";
-        let name = "test_mutex"; // 名前
+        let name = "test_mutex"; // Name
         let input = "input";
-        let output = tmp.join(name); // 出力ディレクトリ
+        let output = tmp.join(name); // Output directory
         #[cfg(windows)]
         let cmd = "cmd";
         #[cfg(not(windows))]
-        let cmd = "sleep"; // コマンド実行に時間がかかるように sleep を使う
+        let cmd = "sleep"; // Use sleep to make command execution take time
         #[cfg(windows)]
-        let arg = vec!["/c", "timeout", "/t", "2"] // 2秒 sleep
+        let arg = vec!["/c", "timeout", "/t", "2"] // sleep for 2 seconds
             .into_iter()
             .map(String::from)
             .collect::<Vec<_>>();
         #[cfg(not(windows))]
-        let arg = vec!["1"].into_iter().map(String::from).collect::<Vec<_>>(); // 1秒 sleep
-        let debounce = Duration::from_millis(0); // debounce 無効
-        let throttle = Duration::from_millis(0); // throttle 無効
-        let limitkey_tmpl = ""; // limitkey は使用しない
-        let mutex_key_tmpl = "my_shared_mutex_key"; // 共通の mutex キー
+        let arg = vec!["1"].into_iter().map(String::from).collect::<Vec<_>>(); // sleep for 1 second
+        let debounce = Duration::from_millis(0); // Debounce disabled
+        let throttle = Duration::from_millis(0); // Throttle disabled
+        let limitkey_tmpl = ""; // Do not use limitkey
+        let mutexkey_tmpl = "my_shared_mutexkey"; // Common mutex key
         let context = Context::new();
         let dt_cache = Arc::new(Mutex::new(HashMap::new())); // dummy dt cache
-        let mutex_cache = Arc::new(Mutex::new(HashSet::new())); // mutex 用キャッシュ
+        let mutex_cache = Arc::new(Mutex::new(HashSet::new())); // mutex cache
 
         let num_threads = 5;
         let mut handles = vec![];
@@ -855,9 +850,9 @@ mod tests {
             let arg = arg.clone();
             let context = context.clone();
             let output = output.clone();
-            // thread ごとに名前を少し変える（ログ出力などで区別しやすくするため）
-            let thread_name = format!("{}_{}", name, i);
-            let mutex_key_tmpl = mutex_key_tmpl.to_string(); // clone for the thread
+            // Change name slightly per thread (for easier distinction in logs)
+            let thread_name = format!("{name}_{i}");
+            let mutexkey_tmpl = mutexkey_tmpl.to_string(); // clone for the thread
             let limitkey_tmpl = limitkey_tmpl.to_string(); // clone for the thread
 
             handles.push(thread::spawn(move || {
@@ -865,7 +860,7 @@ mod tests {
                 let result = execute_command(
                     &event_path,
                     event_kind,
-                    &thread_name, // スレッドごとの名前
+                    &thread_name, // Thread-specific name
                     input,
                     output.to_str().unwrap(),
                     cmd,
@@ -873,7 +868,7 @@ mod tests {
                     debounce,
                     throttle,
                     &limitkey_tmpl,
-                    &mutex_key_tmpl, // mutex キーテンプレートを指定
+                    &mutexkey_tmpl, // Specify mutex key template
                     context,
                     &dt_cache,    // dummy cache
                     &mutex_cache, // mutex cache
@@ -885,7 +880,7 @@ mod tests {
                 );
                 result
             }));
-            // スレッドをほぼ同時に開始して、Mutex 競合を起こしやすくするために少し待つ
+            // Start threads almost simultaneously to increase mutex contention, wait a bit
             thread::sleep(Duration::from_millis(50));
         }
 
@@ -895,8 +890,8 @@ mod tests {
         let duration = end.duration_since(start);
         dbg!(&duration);
 
-        // 同じ mutex_key を使っているので、同時に実行できるのは1つだけ
-        // したがって、num_threads のうち1つだけが実行され、残りはスキップされるはず
+        // Using the same mutexkey, only one can execute at a time.
+        // Therefore, out of num_threads, only one should execute, and the rest should be skipped.
         let executed_count = results.iter().filter(|r| !r.skipped).count();
         let skipped_count = results.iter().filter(|r| r.skipped).count();
 
@@ -910,25 +905,25 @@ mod tests {
             "Remaining commands should have been skipped by mutex"
         );
 
-        // 実行されたコマンドの確認
+        // Verify the executed command
         let executed_result = results.iter().find(|r| !r.skipped).unwrap();
         assert_eq!(executed_result.status.code(), Some(0));
-        // sleep コマンドは stdout/stderr には何も出さないが、exec 関数はファイルを作成するのでパスは存在するはず
+        // The sleep command doesn't output anything to stdout/stderr, but the exec function creates files, so paths should exist
         assert!(!executed_result.skipped);
 
-        // スキップされたコマンドの確認
+        // Verify the skipped commands
         for skipped_result in results.iter().filter(|r| r.skipped) {
             assert!(skipped_result.skipped);
-            assert_eq!(skipped_result.status.code(), Some(0)); // スキップ時はデフォルト値
+            assert_eq!(skipped_result.status.code(), Some(0)); // Default value when skipped
         }
 
-        // 全体実行時間の確認
-        // コマンドは1秒 sleep するので、全体時間は1秒 + オーバーヘッドになるはず
-        // 5スレッドが同時に開始を試みるが、Mutex により1つずつ実行されるわけではなく、
-        // 最初の1つが実行中に他の4つはスキップされるため、
-        // 全体時間は N * コマンド時間 にはならない。
-        assert!(duration >= Duration::from_secs(1)); // 1秒の sleep は待つ
-        assert!(duration < Duration::from_secs(3)); // 5秒には満たないはず
+        // Verify the total execution duration
+        // The command sleeps for 1 second, so the total duration should be 1 second + overhead.
+        // Although 5 threads attempt to start simultaneously, they don't execute one by one due to the Mutex.
+        // Instead, the other 4 are skipped while the first one is executing.
+        // Thus, the total time won't be N * command_time.
+        assert!(duration >= Duration::from_secs(1)); // Should wait for the 1-second sleep
+        assert!(duration < Duration::from_secs(3)); // Should be less than 5 seconds
 
         Ok(())
     }

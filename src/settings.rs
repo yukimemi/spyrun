@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 16:15:42.
+// Last Change : 2025/04/27 16:41:48.
 // =============================================================================
 
 use std::{
@@ -192,7 +192,7 @@ impl Default for Spy {
             throttle: Some(0),
             debounce: Some(0),
             limitkey: Some("".to_string()),
-            mutexkey: None,
+            mutexkey: Some("".to_string()),
             patterns: Some(vec![
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
