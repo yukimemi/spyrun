@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 16:54:48.
+// Last Change : 2025/04/27 17:02:58.
 // =============================================================================
 
 use std::{
@@ -275,7 +275,7 @@ pub fn execute_command(
     };
     context.insert("mutexkey", &mutexkey); // Add rendered mutexkey to context
 
-    info!(
+    warn!(
         "[execute_command] limitkey: [{}], mutexkey: [{}], cmd_info: [{}]",
         &limitkey,
         &mutexkey,
