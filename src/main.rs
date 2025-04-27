@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2025/03/09 00:32:15.
+// Last Change : 2025/04/27 14:26:39.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -210,11 +210,11 @@ fn main() -> Result<()> {
     let settings = match settings {
         Ok(s) => s.rebuild(),
         Err(e) => {
-            load_error = format!("Failed to load toml. so use backup file. {:?}", e);
+            load_error = format!("Failed to load toml. so use backup file. {e:?}");
             let mut error_file = File::create(error_log_path)?;
-            writeln!(error_file, "{}", load_error)?;
+            writeln!(error_file, "{load_error}")?;
             error_file.flush()?;
-            println!("{}", load_error);
+            println!("{load_error}");
             let backup_cfg_path = Settings::backup_path(&cli.config);
             Settings::new(backup_cfg_path, false, &mut context)?.rebuild()
         }

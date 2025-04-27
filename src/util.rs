@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : util.rs
 // Author      : yukimemi
-// Last Change : 2025/03/30 14:55:17.
+// Last Change : 2025/04/27 14:24:35.
 // =============================================================================
 
 #[cfg(windows)]
@@ -232,7 +232,7 @@ fn setenv_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
             unsafe {
                 env::set_var(key_str, value_str);
             }
-            return Ok(Value::String(format!("Set {} to {}", key_str, value_str)));
+            return Ok(Value::String(format!("Set {key_str} to {value_str}")));
         }
     }
     Err("Invalid arguments".into())

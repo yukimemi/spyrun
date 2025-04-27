@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/03/30 21:45:09.
+// Last Change : 2025/04/27 14:14:17.
 // =============================================================================
 
 use std::{
@@ -169,10 +169,10 @@ pub fn throttle_command(
 #[logfn(Debug)]
 pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
     let now = Local::now().format("%Y%m%d_%H%M%S%3f").to_string();
-    let stdout_path =
-        PathBuf::from(&cmd_info.output).join(format!("{}_stdout_{}.log", &cmd_info.name, now));
-    let stderr_path =
-        PathBuf::from(&cmd_info.output).join(format!("{}_stderr_{}.log", &cmd_info.name, now));
+    let output_dir = PathBuf::from(&cmd_info.output);
+    std::fs::create_dir_all(&output_dir)?;
+    let stdout_path = output_dir.join(format!("{}_stdout_{}.log", &cmd_info.name, now));
+    let stderr_path = output_dir.join(format!("{}_stderr_{}.log", &cmd_info.name, now));
     let stdout_file = OpenOptions::new()
         .append(true)
         .create(true)
@@ -182,19 +182,26 @@ pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
         .create(true)
         .open(&stderr_path)?;
     warn!(
-        "[exec] cmd: {}, arg: {}, stdout: {}, stderr: {}",
+        "[exec] Running command: '{} {}' > {} 2> {}",
         &cmd_info.cmd,
         &cmd_info.arg.join(" "),
         stdout_path.display(),
         stderr_path.display()
     );
+    let status = Command::new(&cmd_info.cmd)
+        .args(&cmd_info.arg)
+        .stdout(stdout_file)
+        .stderr(stderr_file)
+        .spawn()?
+        .wait()?;
+    warn!(
+        "[exec] Finished command: '{} {}' with status: {}",
+        &cmd_info.cmd,
+        &cmd_info.arg.join(" "),
+        status
+    );
     Ok(CommandResult {
-        status: Command::new(&cmd_info.cmd)
-            .args(&cmd_info.arg)
-            .stdout(stdout_file)
-            .stderr(stderr_file)
-            .spawn()?
-            .wait()?,
+        status,
         stdout: stdout_path,
         stderr: stderr_path,
         skipped: false,
