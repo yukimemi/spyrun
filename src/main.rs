@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 14:26:39.
+// Last Change : 2025/04/27 16:16:42.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -14,7 +14,7 @@ mod spy;
 mod util;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
     fs::File,
     io::Write,
@@ -140,8 +140,8 @@ fn watcher(
                 }
             });
         });
-        let cache = HashMap::new();
-        let cache = Arc::new(Mutex::new(cache));
+        let dt_cache = Arc::new(Mutex::new(HashMap::new()));
+        let mutex_cache = Arc::new(Mutex::new(HashSet::new()));
         for msg in rx {
             match msg {
                 Message::Event(event) => {
@@ -151,7 +151,8 @@ fn watcher(
                         let tx_exec_clone = tx_execute.clone();
                         let spy = spy.clone();
                         let event = event.clone();
-                        let cache = cache.clone();
+                        let dt_cache = dt_cache.clone();
+                        let mutex_cache = mutex_cache.clone();
                         let mut context = context.clone();
                         context.insert("event_path", &event_path.to_string_lossy());
                         context.insert("event_kind", &event_kind);
@@ -171,8 +172,10 @@ fn watcher(
                                 Duration::from_millis(spy.debounce.unwrap()),
                                 Duration::from_millis(spy.throttle.unwrap()),
                                 &spy.limitkey.unwrap(),
+                                &spy.mutexkey.unwrap(),
                                 context,
-                                &cache,
+                                &dt_cache,
+                                &mutex_cache,
                             );
                             tx_exec_clone.send(status).unwrap();
                         });
@@ -336,8 +339,10 @@ fn main() -> Result<()> {
             Duration::from_secs(0),
             Duration::from_secs(1),
             "",
+            "",
             context.clone(),
             &Arc::new(Mutex::new(HashMap::new())),
+            &Arc::new(Mutex::new(HashSet::new())),
         );
         match status {
             Ok(s) => info!("Init command success status: {:?}", s),

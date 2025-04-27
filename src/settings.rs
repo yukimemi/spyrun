@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : settings.rs
 // Author      : yukimemi
-// Last Change : 2025/03/09 00:32:04.
+// Last Change : 2025/04/27 16:15:42.
 // =============================================================================
 
 use std::{
@@ -55,6 +55,7 @@ pub struct Spy {
     pub throttle: Option<u64>,
     pub debounce: Option<u64>,
     pub limitkey: Option<String>,
+    pub mutexkey: Option<String>,
     pub patterns: Option<Vec<Pattern>>,
     pub delay: Option<(u64, Option<u64>)>,
     pub poll: Option<Poll>,
@@ -139,6 +140,7 @@ impl Settings {
                         throttle: spy.throttle.or(default_spy.throttle),
                         debounce: spy.debounce.or(default_spy.debounce),
                         limitkey: spy.limitkey.clone().or(default_spy.limitkey.clone()),
+                        mutexkey: spy.mutexkey.clone().or(default_spy.mutexkey.clone()),
                         patterns: spy.patterns.clone().or(default_spy.patterns.clone()),
                         delay: spy.delay.or(default_spy.delay),
                         poll: spy.poll.clone().or(default_spy.poll.clone()),
@@ -190,6 +192,7 @@ impl Default for Spy {
             throttle: Some(0),
             debounce: Some(0),
             limitkey: Some("".to_string()),
+            mutexkey: None,
             patterns: Some(vec![
                 Pattern {
                     pattern: "\\.ps1$".to_string(),
