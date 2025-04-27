@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 17:26:51.
+// Last Change : 2025/04/27 17:58:35.
 // =============================================================================
 
 use std::{
@@ -68,8 +68,9 @@ fn apply_debounce(
     if threshold == Duration::from_millis(0) {
         return false; // Debounce disabled
     }
-    let now = Instant::now();
     let mut lock = dt_cache.lock().unwrap();
+    let now = Instant::now();
+    thread::sleep(Duration::from_millis(1));
     lock.insert(limitkey.to_string(), now);
     drop(lock);
 
@@ -96,8 +97,9 @@ fn apply_throttle(
     if threshold == Duration::from_millis(0) {
         return false; // Throttle disabled
     }
-    let now = Instant::now();
     let mut lock = dt_cache.lock().unwrap();
+    let now = Instant::now();
+    thread::sleep(Duration::from_millis(1));
     let executed = lock.get(limitkey);
     if let Some(executed) = executed {
         if now.duration_since(*executed) < threshold {
