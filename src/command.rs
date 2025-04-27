@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 16:50:09.
+// Last Change : 2025/04/27 16:54:48.
 // =============================================================================
 
 use std::{
@@ -294,10 +294,7 @@ pub fn execute_command(
 
     // 4. Apply Throttle logic (if enabled and Debounce is disabled)
     // Note: Debounce and Throttle are intended to be mutually exclusive
-    if throttle > Duration::from_millis(0)
-        && debounce == Duration::from_millis(0)
-        && apply_throttle(&limitkey, throttle, dt_cache)
-    {
+    if throttle > Duration::from_millis(0) && apply_throttle(&limitkey, throttle, dt_cache) {
         return Ok(CommandResult {
             status: ExitStatus::default(), // Default value when skipped
             stdout: PathBuf::default(),

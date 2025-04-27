@@ -1,12 +1,12 @@
 # =============================================================================
 # File        : Cargo.toml
 # Author      : yukimemi
-# Last Change : 2025/04/27 14:25:29.
+# Last Change : 2025/04/27 16:56:17.
 # =============================================================================
 
 [package]
 name = "spyrun"
-version = "2.0.2"
+version = "2.1.0"
 edition = "2024"
 authors = ["yukimemi <yukimemi@gmail.com>"]
 description = "File watcher and command executor"
