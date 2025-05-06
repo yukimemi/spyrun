@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : command.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 17:58:35.
+// Last Change : 2025/05/04 00:27:49.
 // =============================================================================
 
 use std::{
@@ -148,10 +148,6 @@ fn release_mutex(mutexkey: &str, mutex_cache: &Arc<Mutex<HashSet<String>>>) {
 #[logfn(Trace)]
 pub fn render_command(cmd_info: CommandInfo, context: Context) -> Result<CommandInfo> {
     let mut context = context.clone();
-    insert_file_context(&cmd_info.event_path, "event", &mut context).unwrap();
-    let tera = new_tera("spy_name", &cmd_info.name)?;
-    let spy_name = tera.render("spy_name", &context)?;
-    context.insert("spy_name", &spy_name);
     let tera = new_tera("cmd", &cmd_info.cmd)?;
     let cmd = tera.render("cmd", &context)?;
     context.insert("cmd", &cmd);
@@ -244,7 +240,11 @@ pub fn execute_command(
     dt_cache: &Arc<Mutex<HashMap<String, Instant>>>, // Renamed to debounce/throttle cache
     mutex_cache: &Arc<Mutex<HashSet<String>>>,       // Add mutex cache
 ) -> Result<CommandResult> {
-    // 1. Render CommandInfo
+    insert_file_context(event_path, "event", &mut context)?;
+    let tera = new_tera("spy_name", name)?;
+    let spy_name = tera.render("spy_name", &context)?;
+    context.insert("spy_name", &spy_name);
+    // Render CommandInfo
     let cmd_info = render_command(
         CommandInfo {
             name: name.to_string(),
@@ -258,7 +258,7 @@ pub fn execute_command(
         context.clone(), // Clone Context for rendering
     )?;
 
-    // 2. Render limitkey and mutexkey templates
+    // Render limitkey and mutexkey templates
     let limitkey = if limitkey_tmpl.is_empty() {
         cmd_info.to_string() // Use CommandInfo as default key if template is empty
     } else {
@@ -284,7 +284,7 @@ pub fn execute_command(
         cmd_info.to_string()
     );
 
-    // 3. Apply Debounce logic (if enabled)
+    // Apply Debounce logic (if enabled)
     if debounce > Duration::from_millis(0) && apply_debounce(&limitkey, debounce, dt_cache) {
         return Ok(CommandResult {
             status: ExitStatus::default(), // Default value when skipped
@@ -294,7 +294,7 @@ pub fn execute_command(
         });
     }
 
-    // 4. Apply Throttle logic (if enabled and Debounce is disabled)
+    // Apply Throttle logic (if enabled and Debounce is disabled)
     // Note: Debounce and Throttle are intended to be mutually exclusive
     if throttle > Duration::from_millis(0)
         && debounce == Duration::from_millis(0)
@@ -308,7 +308,7 @@ pub fn execute_command(
         });
     }
 
-    // 5. Apply Mutex logic
+    // Apply Mutex logic
     // acquire_mutex checks if mutexkey is empty internally, so just calling it is enough
     if acquire_mutex(&mutexkey, mutex_cache) {
         // Mutex acquired successfully (or mutex disabled if mutexkey is empty)
