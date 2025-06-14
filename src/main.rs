@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2025/04/27 16:16:42.
+// Last Change : 2025/06/14 23:44:47.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -242,7 +242,12 @@ fn main() -> Result<()> {
         drop(guard2);
     });
 
-    let cmd_line = context.get("cmd_line").unwrap().as_str().unwrap();
+    let cmd_line = context
+        .get("cmd_line")
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .replace("\\", "/");
     debug!("cmd_line: {}", &cmd_line);
     let toml_str = std::fs::read_to_string(&cli.config)?;
     let hash = hex_digest(Algorithm::SHA256, toml_str.as_bytes());
