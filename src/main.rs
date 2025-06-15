@@ -1,7 +1,7 @@
 // =============================================================================
 // File        : main.rs
 // Author      : yukimemi
-// Last Change : 2025/06/14 23:44:47.
+// Last Change : 2025/06/15 09:01:25.
 // =============================================================================
 
 // #![windows_subsystem = "windows"]
@@ -46,8 +46,16 @@ use util::insert_file_context;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Sets a custom config file
-    #[arg(short, long, value_name = "FILE", default_value = "spyrun.toml")]
-    config: PathBuf,
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<PathBuf>,
+}
+
+#[tracing::instrument]
+#[logfn(Debug)]
+fn get_default_config_path() -> PathBuf {
+    let mut path = env::current_exe().expect("Failed to get current executable path");
+    path.set_extension("toml");
+    path
 }
 
 #[tracing::instrument]
@@ -208,8 +216,9 @@ fn main() -> Result<()> {
     let error_log_path =
         Path::new(context.get("cmd_dir").unwrap().as_str().unwrap()).join("error.log");
 
+    let config_path = cli.config.unwrap_or_else(get_default_config_path);
     let mut load_error = String::new();
-    let settings = Settings::new(&cli.config, true, &mut context);
+    let settings = Settings::new(&config_path, true, &mut context);
     let settings = match settings {
         Ok(s) => s.rebuild(),
         Err(e) => {
@@ -218,7 +227,7 @@ fn main() -> Result<()> {
             writeln!(error_file, "{load_error}")?;
             error_file.flush()?;
             println!("{load_error}");
-            let backup_cfg_path = Settings::backup_path(&cli.config);
+            let backup_cfg_path = Settings::backup_path(&config_path);
             Settings::new(backup_cfg_path, false, &mut context)?.rebuild()
         }
     };
@@ -249,7 +258,7 @@ fn main() -> Result<()> {
         .unwrap()
         .replace("\\", "/");
     debug!("cmd_line: {}", &cmd_line);
-    let toml_str = std::fs::read_to_string(&cli.config)?;
+    let toml_str = std::fs::read_to_string(&config_path)?;
     let hash = hex_digest(Algorithm::SHA256, toml_str.as_bytes());
     #[cfg(not(target_os = "windows"))]
     let hash = env::temp_dir().join(hash);
