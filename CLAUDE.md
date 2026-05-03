@@ -85,24 +85,34 @@ cargo make check
   even then `renri add` is cheap enough that defaulting to it is
   fine.
 
-### Backend choice — git today, jj if you opt in
+### Backend choice — jj-first when available
 
-spyrun is currently a git-only repo, so `renri add` falls back to
-`git worktree add`. To switch to jj-first across all renri operations
-in this repo, run `jj git init --colocate` once at the repo root —
-the rest of the renri workflow works identically (the same `renri
-add <branch-name>` will then create a jj workspace instead of a git
-worktree).
+spyrun is published as a plain git repo, but `cargo make setup` runs
+`jj git init --colocate` if `jj` is on `PATH`, bringing spyrun in
+line with the rest of the yukimemi/* family. Once colocated,
+`renri add` defaults to **jj** (creates a non-colocated jj workspace
+where `jj` commands work and `git` does not — see
+[jj-vcs/jj#8052](https://github.com/jj-vcs/jj/issues/8052) for why
+secondary colocation isn't possible yet).
+
+If `jj` isn't installed, `cargo make setup` skips the colocate step,
+and `renri add` falls back to `git worktree add`. The renri workflow
+works either way.
 
 ```sh
-# In a freshly created worktree:
-git push -u origin <branch-name>      # first push
-git push                              # subsequent pushes
-
-# (or, if you've init-ed jj on top:)
+# In a freshly created jj workspace (default once colocated):
 jj describe -m "feat: ..."
 jj git push --bookmark <branch-name> --allow-new
+
+# In a git worktree (when jj isn't installed):
+git push -u origin <branch-name>      # first push
+git push                              # subsequent pushes
 ```
+
+`renri --vcs git add <branch-name>` is the override and exists for
+genuine git-CLI-only needs (git submodule, native git2 tooling,
+git-only hooks). Do **not** reach for it out of git-CLI familiarity
+— prefer learning the equivalent jj commands once colocated.
 
 ### Cleanup after merge
 
