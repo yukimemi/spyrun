@@ -68,3 +68,82 @@ args = ["run", "--rm", "-it", "-w", "${PWD}", "-v", "${PWD}:${PWD}", "rust"]
 [tasks.selfupdate]
 command = "cargo"
 args = ["install", "--force", "cargo-make"]
+
+[tasks.hook-install]
+description = "Install git pre-push hook that runs 'cargo make check'"
+script_runner = "@duckscript"
+script = '''
+hook_dir = set ".git/hooks"
+hook_file = set "${hook_dir}/pre-push"
+mkdir ${hook_dir}
+hook_content = set "#!/bin/sh\n# Installed by: cargo make hook-install\ncargo make check"
+writefile ${hook_file} ${hook_content}
+echo "Installed pre-push hook -> ${hook_file}"
+'''
+
+[tasks.apm-install]
+description = "Compile the renri skill into .claude/skills/ + .gemini/skills/ + .github/skills/ via APM"
+command = "apm"
+args = ["install", "-t", "copilot,claude,gemini"]
+
+[tasks.apm-install-update]
+description = "Refresh APM dependencies to upstream latest (used by on-add hook)"
+command = "apm"
+args = ["install", "--update", "-t", "copilot,claude,gemini"]
+
+[tasks.vcs-fetch]
+description = "Fetch latest refs (jj when in a jj workspace, otherwise git)"
+# Best-effort: a missing `jj`/`git` binary, an unreachable remote, etc.
+# should log but not fail `cargo make on-add` and break `renri add`.
+ignore_errors = true
+script_runner = "@duckscript"
+script = '''
+# A non-colocated jj workspace has `.jj/` but no `.git/`, and `git fetch`
+# fails there with "not a git repository". Prefer `jj git fetch`, which
+# works in pure-jj and colocated repos. Fall back to `git fetch` for
+# pure-git (no `.jj/`) worktrees.
+#
+# Best-effort: don't `--fail-on-error` because a transient network
+# failure during `renri add` shouldn't break the worktree; the user
+# can always `cargo make vcs-fetch` later.
+if is_path_exists .jj
+    exec jj git fetch
+else
+    exec git fetch
+end
+'''
+
+[tasks.on-add]
+description = "Wired to renri's [[hooks.post_create]] — runs in a freshly created worktree"
+dependencies = ["apm-install-update", "vcs-fetch"]
+
+[tasks.jj-init-colocate]
+description = "Initialize jj on top of the existing git repo (idempotent; skips when jj isn't on PATH or we're in a worktree)"
+script_runner = "@duckscript"
+script = '''
+# spyrun ships as plain git, but the rest of the yukimemi/* family is
+# colocated git+jj. Bring spyrun in line for contributors who already
+# have jj — and silently skip for everyone else.
+#
+# Skip conditions (all idempotent and quiet):
+#   - `.jj/` already exists      → repo is already colocated
+#   - `.git` is a *file*         → we're inside a git worktree, not the
+#                                  main checkout; jj would refuse anyway
+#   - `jj` not on PATH           → contributor doesn't use jj
+if is_path_exists .jj
+    echo ".jj/ already present — skipping jj git init."
+elseif not is_dir .git
+    echo "Not the main git checkout (.git is a file) — skipping jj init."
+else
+    which_jj = which jj
+    if is_empty ${which_jj}
+        echo "jj not on PATH — skipping. Install from https://github.com/jj-vcs/jj if you want jj-first workflows in this repo."
+    else
+        exec --fail-on-error jj git init --colocate
+    end
+end
+'''
+
+[tasks.setup]
+description = "One-time setup for new contributors: pre-push hook + APM install + jj colocate (requires `apm` CLI; jj is optional)"
+dependencies = ["hook-install", "apm-install", "jj-init-colocate"]

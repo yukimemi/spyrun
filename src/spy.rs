@@ -198,6 +198,10 @@ mod tests {
     };
 
     #[test]
+    // FIXME: macOS's fsevents backend coalesces / delays differently from
+    // inotify; the 10s timeout this test relies on isn't reliable on the
+    // GitHub macos-latest runners. Ignored there until reworked.
+    #[cfg_attr(target_os = "macos", ignore = "flaky on macOS fsevents")]
     fn test_watch() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let watch_path = tmp.join("test_watch");

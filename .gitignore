@@ -30,3 +30,9 @@ test/
 
 *_backup.toml
 log/
+
+# APM dependencies (resolved into apm_modules/ at install time)
+apm_modules/
+
+# Claude Code local-only settings (not the project skills/agents)
+.claude/settings.local.json
