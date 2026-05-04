@@ -748,6 +748,12 @@ mod tests {
 
     // Test case for mutex functionality
     #[test]
+    // FIXME: the Windows arm shells out to `cmd /c timeout /t 2`, which
+    // requires a real console handle; under GitHub Actions windows-latest
+    // it exits immediately with an error and breaks the timing this test
+    // depends on. Ignored there until reworked to use a runner-friendly
+    // sleep primitive.
+    #[cfg_attr(target_os = "windows", ignore = "needs console-attached cmd")]
     fn test_execute_command_with_mutex() -> Result<()> {
         let tmp = env::current_dir()?.join("test");
         let event_path = PathBuf::from("event");
