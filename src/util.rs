@@ -227,13 +227,13 @@ fn env_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
 }
 
 fn setenv_function(args: &HashMap<String, Value>) -> tera::Result<Value> {
-    if let (Some(key), Some(value)) = (args.get("key"), args.get("value")) {
-        if let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str()) {
-            unsafe {
-                env::set_var(key_str, value_str);
-            }
-            return Ok(Value::String(format!("Set {key_str} to {value_str}")));
+    if let (Some(key), Some(value)) = (args.get("key"), args.get("value"))
+        && let (Some(key_str), Some(value_str)) = (key.as_str(), value.as_str())
+    {
+        unsafe {
+            env::set_var(key_str, value_str);
         }
+        return Ok(Value::String(format!("Set {key_str} to {value_str}")));
     }
     Err("Invalid arguments".into())
 }

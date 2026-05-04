@@ -101,12 +101,12 @@ fn apply_throttle(
     let now = Instant::now();
     thread::sleep(Duration::from_millis(1));
     let executed = lock.get(limitkey);
-    if let Some(executed) = executed {
-        if now.duration_since(*executed) < threshold {
-            drop(lock);
-            debug!("Throttle! Skip execute limitkey: {}", limitkey);
-            return true; // Skip
-        }
+    if let Some(executed) = executed
+        && now.duration_since(*executed) < threshold
+    {
+        drop(lock);
+        debug!("Throttle! Skip execute limitkey: {}", limitkey);
+        return true; // Skip
     }
     // Update the cache if not skipped
     lock.insert(limitkey.to_string(), now);
@@ -222,6 +222,10 @@ pub fn exec(cmd_info: CommandInfo) -> Result<CommandResult> {
     })
 }
 
+// FIXME: refactor into a `struct ExecuteCommandArgs { … }` + builder.
+// Triggered by stabilizing CI on stable + clippy/rustfmt jobs; flagged
+// here rather than fixed structurally to keep this PR scoped.
+#[allow(clippy::too_many_arguments)]
 #[tracing::instrument]
 #[logfn(Trace)]
 pub fn execute_command(
