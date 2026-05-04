@@ -93,6 +93,9 @@ args = ["install", "--update", "-t", "copilot,claude,gemini"]
 
 [tasks.vcs-fetch]
 description = "Fetch latest refs (jj when in a jj workspace, otherwise git)"
+# Best-effort: a missing `jj`/`git` binary, an unreachable remote, etc.
+# should log but not fail `cargo make on-add` and break `renri add`.
+ignore_errors = true
 script_runner = "@duckscript"
 script = '''
 # A non-colocated jj workspace has `.jj/` but no `.git/`, and `git fetch`
